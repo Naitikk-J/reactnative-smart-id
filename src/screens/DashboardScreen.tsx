@@ -18,6 +18,27 @@ import { submitLateReturnRequest } from "../services/lateReturnService"
 import { getMyPinkSlips } from "../services/pinkSlipService"
 import { getPersonalLogs } from "../services/scanService"
 
+const MEAL_NUMBER_REGEX = /meal\s*#?\s*(\d+)/i
+
+function isMealLog(item: any): boolean {
+    const type = String(item?.type ?? item?.scanType ?? "").toUpperCase()
+    const result = String(item?.result ?? "").toUpperCase()
+    const gate = String(item?.gateLabel ?? item?.gate ?? "")
+    return type === "EVENT_MEAL" || result === "MEAL_CONFIRMED" || MEAL_NUMBER_REGEX.test(gate)
+}
+
+function extractMealNo(item: any): number | null {
+    const direct = Number(item?.mealNumber ?? item?.meta?.mealNumber)
+    if (Number.isFinite(direct) && direct > 0) return direct
+
+    const gate = String(item?.gateLabel ?? item?.gate ?? "")
+    const matched = gate.match(MEAL_NUMBER_REGEX)
+    if (!matched) return null
+
+    const parsed = Number(matched[1])
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
 export default function DashboardScreen() {
     const { user, logout } = useAuth()
     const [logs, setLogs] = useState<any[]>([])
@@ -53,11 +74,19 @@ export default function DashboardScreen() {
         setRefreshing(false)
     }
 
+    const lastDirectionalLog = useMemo(
+        () => logs.find((log) => {
+            if (isMealLog(log)) return false
+            const direction = String(log?.direction ?? "").toUpperCase()
+            return direction === "ENTRY" || direction === "EXIT"
+        }) ?? null,
+        [logs],
+    )
+
     const statusText = useMemo(() => {
-        const last = logs[0]
-        if (!last) return "INSIDE HOSTEL"
-        return String(last.direction).toUpperCase() === "ENTRY" ? "INSIDE HOSTEL" : "OUTSIDE HOSTEL"
-    }, [logs])
+        if (!lastDirectionalLog) return "INSIDE HOSTEL"
+        return String(lastDirectionalLog.direction).toUpperCase() === "ENTRY" ? "INSIDE HOSTEL" : "OUTSIDE HOSTEL"
+    }, [lastDirectionalLog])
 
     const isInsideHostel = statusText === "INSIDE HOSTEL"
     const recentLogItems = logs.slice(0, 3)
@@ -155,12 +184,21 @@ export default function DashboardScreen() {
                 ) : (
                     recentLogItems.map((item: any, idx: number) => {
                         const stamp = item?.time ?? item?.scannedAt ?? item?.timestamp
+                        const mealLog = isMealLog(item)
                         const direction = String(item?.direction ?? item?.scanType ?? "SCAN").toUpperCase()
+                        const mealNo = extractMealNo(item)
                         return (
                             <View key={String(item?.id ?? idx)} style={styles.activityRow}>
-                                <View style={[styles.activityMarker, direction === "ENTRY" ? styles.activityEntry : styles.activityExit]} />
+                                <View
+                                    style={[
+                                        styles.activityMarker,
+                                        mealLog ? styles.activityMeal : direction === "ENTRY" ? styles.activityEntry : styles.activityExit,
+                                    ]}
+                                />
                                 <View style={{ flex: 1 }}>
-                                    <Text style={styles.activityTitle}>{direction}</Text>
+                                    <Text style={styles.activityTitle}>
+                                        {mealLog ? `Meal availed no. ${mealNo ?? "-"}` : direction}
+                                    </Text>
                                     <Text style={styles.activityMeta}>{stamp ? new Date(stamp).toLocaleString() : "-"}</Text>
                                 </View>
                             </View>
@@ -286,6 +324,7 @@ const styles = StyleSheet.create({
     activityMarker: { width: 10, height: 10, borderRadius: 999 },
     activityEntry: { backgroundColor: APP_THEME.accent },
     activityExit: { backgroundColor: APP_THEME.warning },
+    activityMeal: { backgroundColor: APP_THEME.accent },
     activityTitle: { color: APP_THEME.text, fontWeight: "700", fontSize: 13 },
     activityMeta: { color: APP_THEME.muted, fontSize: 12, marginTop: 2 },
     input: {
