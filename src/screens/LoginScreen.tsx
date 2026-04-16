@@ -56,10 +56,15 @@ export default function LoginScreen() {
 
     return (
         <SafeAreaView style={styles.safe}>
+            <View style={styles.bgOrbOne} />
+            <View style={styles.bgOrbTwo} />
             <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", default: undefined })} style={styles.container}>
                 <View style={styles.card}>
-                    <Text style={styles.title}>SMART ID</Text>
-                    <Text style={styles.subtitle}>Sign in to continue</Text>
+                    <View style={styles.brandTag}>
+                        <Text style={styles.brandTagText}>MITS SMART ID</Text>
+                    </View>
+                    <Text style={styles.title}>Welcome Back</Text>
+                    <Text style={styles.subtitle}>Sign in to continue your hostel access workflow</Text>
 
                     <TextInput
                         value={email}
@@ -82,7 +87,7 @@ export default function LoginScreen() {
 
                     {error ? <Text style={styles.error}>{error}</Text> : null}
 
-                    <Pressable onPress={onLogin} style={styles.primaryBtn} disabled={isLoading}>
+                    <Pressable onPress={onLogin} style={[styles.primaryBtn, isLoading && styles.primaryBtnDisabled]} disabled={isLoading}>
                         {isLoading ? <ActivityIndicator color={APP_THEME.bg} /> : <Text style={styles.primaryBtnText}>Login</Text>}
                     </Pressable>
 
@@ -139,45 +144,84 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     safe: { flex: 1, backgroundColor: APP_THEME.bg },
     container: { flex: 1, justifyContent: "center", padding: 20 },
+    bgOrbOne: {
+        position: "absolute",
+        width: 220,
+        height: 220,
+        borderRadius: 999,
+        backgroundColor: "rgba(34,110,255,0.22)",
+        top: -40,
+        right: -40,
+    },
+    bgOrbTwo: {
+        position: "absolute",
+        width: 180,
+        height: 180,
+        borderRadius: 999,
+        backgroundColor: "rgba(22,214,163,0.18)",
+        bottom: -30,
+        left: -30,
+    },
     card: {
         backgroundColor: APP_THEME.card,
-        borderColor: APP_THEME.border,
+        borderColor: "rgba(255,255,255,0.12)",
+        borderWidth: 1,
+        borderRadius: 22,
+        padding: 20,
+        gap: 12,
+        shadowColor: "#000",
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 18,
+    },
+    brandTag: {
+        alignSelf: "center",
+        borderRadius: 999,
+        backgroundColor: "rgba(22,214,163,0.14)",
+        borderWidth: 1,
+        borderColor: "rgba(22,214,163,0.28)",
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+    },
+    brandTagText: {
+        color: APP_THEME.accent,
+        fontSize: 11,
+        fontWeight: "800",
+        letterSpacing: 0.8,
+    },
+    title: { color: APP_THEME.text, fontSize: 30, fontWeight: "800", textAlign: "center" },
+    subtitle: { color: APP_THEME.muted, textAlign: "center", marginBottom: 8, lineHeight: 20 },
+    input: {
+        borderColor: "rgba(255,255,255,0.16)",
         borderWidth: 1,
         borderRadius: 14,
-        padding: 18,
-        gap: 10,
-    },
-    title: { color: APP_THEME.text, fontSize: 28, fontWeight: "700", textAlign: "center" },
-    subtitle: { color: APP_THEME.muted, textAlign: "center", marginBottom: 8 },
-    input: {
-        borderColor: APP_THEME.border,
-        borderWidth: 1,
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
         color: APP_THEME.text,
-        backgroundColor: "#0d1a30",
+        backgroundColor: "rgba(3,10,24,0.55)",
     },
-    error: { color: APP_THEME.danger, fontSize: 13 },
+    error: { color: APP_THEME.danger, fontSize: 13, paddingHorizontal: 2 },
     primaryBtn: {
         backgroundColor: APP_THEME.accent,
-        borderRadius: 10,
+        borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
-        minHeight: 44,
+        minHeight: 48,
         paddingHorizontal: 14,
     },
-    primaryBtnText: { color: APP_THEME.bg, fontWeight: "700" },
+    primaryBtnDisabled: { opacity: 0.7 },
+    primaryBtnText: { color: APP_THEME.bg, fontWeight: "800", fontSize: 15 },
     secondaryBtn: {
-        borderColor: APP_THEME.border,
+        borderColor: "rgba(255,255,255,0.2)",
         borderWidth: 1,
-        borderRadius: 10,
+        borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
-        minHeight: 44,
+        minHeight: 46,
         paddingHorizontal: 14,
     },
-    secondaryBtnText: { color: APP_THEME.text, fontWeight: "600" },
+    secondaryBtnText: { color: APP_THEME.text, fontWeight: "700" },
     modalBackdrop: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.6)",
@@ -186,12 +230,12 @@ const styles = StyleSheet.create({
     },
     modalCard: {
         backgroundColor: APP_THEME.card,
-        borderRadius: 14,
+        borderRadius: 18,
         borderWidth: 1,
-        borderColor: APP_THEME.border,
+        borderColor: "rgba(255,255,255,0.14)",
         padding: 16,
-        gap: 10,
+        gap: 12,
     },
-    modalTitle: { color: APP_THEME.text, fontSize: 18, fontWeight: "700" },
+    modalTitle: { color: APP_THEME.text, fontSize: 18, fontWeight: "800" },
     modalActions: { flexDirection: "row", gap: 10, justifyContent: "flex-end" },
 })

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native"
+import { ActivityIndicator, Alert, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native"
 import { CameraView, useCameraPermissions } from "expo-camera"
 import * as Location from "expo-location"
 import { APP_THEME } from "../config/constants"
@@ -11,9 +11,34 @@ export default function ScannerScreen() {
     const [mode, setMode] = useState<"ENTRY" | "EXIT">("ENTRY")
     const [isProcessing, setIsProcessing] = useState(false)
     const [lastResult, setLastResult] = useState<ScanResult | null>(null)
+    const [isResultModalVisible, setIsResultModalVisible] = useState(false)
     const lastScanAtRef = useRef<number>(0)
 
-    const canScan = useMemo(() => cameraPermission?.granted === true && !isProcessing, [cameraPermission?.granted, isProcessing])
+    const canScan = useMemo(
+        () => cameraPermission?.granted === true && !isProcessing && !isResultModalVisible,
+        [cameraPermission?.granted, isProcessing, isResultModalVisible],
+    )
+
+    const resultTone = useMemo(() => {
+        if (!lastResult) return APP_THEME.muted
+        if (lastResult.badge === "GREEN") return APP_THEME.accent
+        if (lastResult.badge === "AMBER") return APP_THEME.warning
+        return APP_THEME.danger
+    }, [lastResult])
+
+    const resultTitle = useMemo(() => {
+        if (!lastResult) return "SCAN RESULT"
+        if (lastResult.badge === "GREEN") return "VERIFIED"
+        if (lastResult.badge === "AMBER") return "WARNING"
+        return "UNVERIFIED"
+    }, [lastResult])
+
+    const resultIcon = useMemo(() => {
+        if (!lastResult) return "?"
+        if (lastResult.badge === "GREEN") return "✓"
+        if (lastResult.badge === "AMBER") return "!"
+        return "✕"
+    }, [lastResult])
 
     const handleScanned = async (value: string) => {
         const now = Date.now()
@@ -72,17 +97,24 @@ export default function ScannerScreen() {
             }
 
             setLastResult(result)
+            setIsResultModalVisible(true)
         } catch (err) {
-            setLastResult({
+            const fallbackResult = {
                 success: false,
                 result: "ERROR",
                 badge: "RED",
                 message: String(err),
                 meta: {},
-            })
+            }
+            setLastResult(fallbackResult)
+            setIsResultModalVisible(true)
         } finally {
             setIsProcessing(false)
         }
+    }
+
+    const closeResultModal = () => {
+        setIsResultModalVisible(false)
     }
 
     if (!cameraPermission) {
@@ -106,6 +138,18 @@ export default function ScannerScreen() {
 
     return (
         <View style={styles.container}>
+            <View style={styles.headerRow}>
+                <View>
+                    <Text style={styles.screenTitle}>Scan Console</Text>
+                    <Text style={styles.screenSubtitle}>Point camera towards access, event or gate QR</Text>
+                </View>
+                <View style={[styles.scanStateChip, isProcessing && styles.scanStateChipBusy]}>
+                    <Text style={[styles.scanStateText, isProcessing && styles.scanStateTextBusy]}>
+                        {isProcessing ? "PROCESSING" : "READY"}
+                    </Text>
+                </View>
+            </View>
+
             <View style={styles.modeRow}>
                 <Pressable
                     style={[styles.modeBtn, mode === "ENTRY" && styles.modeBtnActive]}
@@ -128,21 +172,62 @@ export default function ScannerScreen() {
                     barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                     onBarcodeScanned={canScan ? (event) => handleScanned(event.data) : undefined}
                 />
+                <View style={styles.overlayCenter}>
+                    <View style={styles.scanFrame}>
+                        <View style={[styles.corner, styles.cornerTopLeft]} />
+                        <View style={[styles.corner, styles.cornerTopRight]} />
+                        <View style={[styles.corner, styles.cornerBottomLeft]} />
+                        <View style={[styles.corner, styles.cornerBottomRight]} />
+                    </View>
+                    <Text style={styles.overlayHint}>Align QR inside frame</Text>
+                </View>
             </View>
 
             <View style={styles.resultCard}>
-                <Text style={styles.resultTitle}>Last Result</Text>
-                {isProcessing ? <ActivityIndicator color={APP_THEME.accent} /> : null}
-                {lastResult ? (
-                    <>
-                        <Text style={styles.resultLine}>Result: {lastResult.result}</Text>
-                        <Text style={styles.resultLine}>Badge: {lastResult.badge}</Text>
-                        <Text style={styles.resultMessage}>{lastResult.message ?? "-"}</Text>
-                    </>
-                ) : (
-                    <Text style={styles.resultMessage}>Scan a QR to verify</Text>
-                )}
+                <Text style={styles.resultTitle}>Result popup</Text>
+                <Text style={styles.resultMessage}>
+                    After each scan, a result card will pop up showing the scan result and student details (if available).
+                </Text>
             </View>
+
+            <Modal
+                visible={isResultModalVisible}
+                animationType="fade"
+                transparent
+                onRequestClose={closeResultModal}
+            >
+                <View style={[styles.modalBackdrop, { backgroundColor: resultTone }]}>
+                    <View style={styles.modalSurface}>
+                        <View style={styles.modalTop}>
+                            <View style={styles.modalIconShell}>
+                                <Text style={styles.modalIconText}>{resultIcon}</Text>
+                            </View>
+
+                            <Text style={styles.modalTitle}>{resultTitle}</Text>
+                            <Text style={styles.modalResultCode}>{lastResult?.result ?? "-"}</Text>
+                            <Text style={styles.modalMessage}>{lastResult?.message ?? "No message"}</Text>
+                        </View>
+
+                        {lastResult?.student ? (
+                            <View style={styles.studentCard}>
+                                {lastResult.student.photoUrl ? (
+                                    <Image source={{ uri: lastResult.student.photoUrl }} style={styles.studentPhoto} />
+                                ) : (
+                                    <View style={styles.studentPhotoFallback}>
+                                        <Text style={styles.studentPhotoFallbackText}>ID</Text>
+                                    </View>
+                                )}
+                                <Text style={styles.studentName}>{lastResult.student.name}</Text>
+                                <Text style={styles.studentEnrollment}>{lastResult.student.enrollmentNo}</Text>
+                            </View>
+                        ) : null}
+
+                        <Pressable style={styles.modalActionBtn} onPress={closeResultModal}>
+                            <Text style={[styles.modalActionBtnText, { color: resultTone }]}>Done</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
         </View>
     )
 }
@@ -151,46 +236,228 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: APP_THEME.bg, padding: 12, gap: 12 },
     center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: APP_THEME.bg, gap: 12 },
     title: { color: APP_THEME.text, fontSize: 18, fontWeight: "700" },
+    headerRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+    },
+    screenTitle: { color: APP_THEME.text, fontSize: 22, fontWeight: "800" },
+    screenSubtitle: { color: APP_THEME.muted, fontSize: 12, marginTop: 2 },
+    scanStateChip: {
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: "rgba(22,214,163,0.3)",
+        backgroundColor: "rgba(22,214,163,0.15)",
+        paddingHorizontal: 10,
+        paddingVertical: 7,
+    },
+    scanStateChipBusy: {
+        borderColor: "rgba(247,201,72,0.34)",
+        backgroundColor: "rgba(247,201,72,0.18)",
+    },
+    scanStateText: { color: APP_THEME.accent, fontSize: 11, fontWeight: "800", letterSpacing: 0.8 },
+    scanStateTextBusy: { color: APP_THEME.warning },
     modeRow: { flexDirection: "row", gap: 10 },
     modeBtn: {
         flex: 1,
-        borderColor: APP_THEME.border,
+        borderColor: "rgba(255,255,255,0.16)",
         borderWidth: 1,
-        borderRadius: 10,
+        borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
-        minHeight: 42,
+        minHeight: 46,
         backgroundColor: APP_THEME.card,
     },
     modeBtnActive: { backgroundColor: APP_THEME.accent },
-    modeText: { color: APP_THEME.text, fontWeight: "700" },
+    modeText: { color: APP_THEME.text, fontWeight: "800", letterSpacing: 0.4 },
     modeTextActive: { color: APP_THEME.bg },
     cameraWrap: {
         flex: 1,
-        borderRadius: 14,
+        borderRadius: 18,
         overflow: "hidden",
-        borderColor: APP_THEME.border,
+        borderColor: "rgba(255,255,255,0.14)",
         borderWidth: 1,
+        backgroundColor: "#000",
+    },
+    overlayCenter: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: "center",
+        justifyContent: "center",
+        pointerEvents: "none",
+    },
+    scanFrame: {
+        width: "72%",
+        aspectRatio: 1,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.16)",
+        position: "relative",
+    },
+    corner: {
+        position: "absolute",
+        width: 28,
+        height: 28,
+        borderColor: APP_THEME.accent,
+        borderWidth: 3,
+    },
+    cornerTopLeft: {
+        top: -2,
+        left: -2,
+        borderRightWidth: 0,
+        borderBottomWidth: 0,
+        borderTopLeftRadius: 12,
+    },
+    cornerTopRight: {
+        top: -2,
+        right: -2,
+        borderLeftWidth: 0,
+        borderBottomWidth: 0,
+        borderTopRightRadius: 12,
+    },
+    cornerBottomLeft: {
+        bottom: -2,
+        left: -2,
+        borderRightWidth: 0,
+        borderTopWidth: 0,
+        borderBottomLeftRadius: 12,
+    },
+    cornerBottomRight: {
+        bottom: -2,
+        right: -2,
+        borderLeftWidth: 0,
+        borderTopWidth: 0,
+        borderBottomRightRadius: 12,
+    },
+    overlayHint: {
+        marginTop: 12,
+        color: "#d9e5ff",
+        fontSize: 12,
+        backgroundColor: "rgba(0,0,0,0.35)",
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 999,
     },
     resultCard: {
         backgroundColor: APP_THEME.card,
-        borderColor: APP_THEME.border,
+        borderColor: "rgba(255,255,255,0.12)",
         borderWidth: 1,
-        borderRadius: 12,
-        padding: 12,
-        gap: 6,
+        borderRadius: 16,
+        padding: 14,
+        gap: 8,
         minHeight: 120,
     },
-    resultTitle: { color: APP_THEME.text, fontSize: 16, fontWeight: "700" },
-    resultLine: { color: APP_THEME.text, fontSize: 14 },
-    resultMessage: { color: APP_THEME.muted, fontSize: 13 },
-    primaryBtn: {
-        backgroundColor: APP_THEME.accent,
-        borderRadius: 10,
+    resultTitle: { color: APP_THEME.text, fontSize: 16, fontWeight: "800" },
+    resultMessage: { color: APP_THEME.muted, fontSize: 13, lineHeight: 19 },
+    modalBackdrop: {
+        flex: 1,
+        padding: 22,
+    },
+    modalSurface: {
+        flex: 1,
+        width: "100%",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 24,
+    },
+    modalTop: {
+        width: "100%",
+        alignItems: "center",
+    },
+    modalIconShell: {
+        width: 110,
+        height: 110,
+        borderRadius: 28,
+        backgroundColor: "#10203a",
+        borderWidth: 4,
+        borderColor: "#071226",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: 40,
+        shadowColor: "#071226",
+        shadowOpacity: 0.5,
+        shadowOffset: { width: 8, height: 8 },
+        shadowRadius: 0,
+        elevation: 12,
+    },
+    modalIconText: { color: "#fff", fontSize: 44, fontWeight: "900", lineHeight: 48 },
+    modalTitle: {
+        color: "#071226",
+        fontSize: 36,
+        fontWeight: "900",
+        marginTop: 22,
+        letterSpacing: 0.6,
+    },
+    modalResultCode: {
+        color: "#071226",
+        fontSize: 28,
+        fontWeight: "800",
+        marginTop: 10,
+        textAlign: "center",
+    },
+    modalMessage: {
+        color: "#071226",
+        fontSize: 19,
+        fontWeight: "700",
+        textAlign: "center",
+        marginTop: 10,
+        maxWidth: 360,
+    },
+    studentCard: {
+        width: "100%",
+        maxWidth: 380,
+        borderRadius: 22,
+        backgroundColor: "#10203a",
+        borderWidth: 4,
+        borderColor: "#071226",
+        alignItems: "center",
+        paddingVertical: 18,
+        paddingHorizontal: 14,
+        shadowColor: "#071226",
+        shadowOpacity: 0.45,
+        shadowOffset: { width: 8, height: 8 },
+        shadowRadius: 0,
+        elevation: 10,
+    },
+    studentPhoto: {
+        width: 84,
+        height: 84,
+        borderRadius: 18,
+        borderWidth: 2,
+        borderColor: "rgba(255,255,255,0.24)",
+    },
+    studentPhotoFallback: {
+        width: 84,
+        height: 84,
+        borderRadius: 18,
+        borderWidth: 2,
+        borderColor: "rgba(255,255,255,0.24)",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(255,255,255,0.1)",
+    },
+    studentPhotoFallbackText: { color: "#d9e5ff", fontSize: 20, fontWeight: "800" },
+    studentName: { color: "#fff", fontSize: 24, fontWeight: "800", marginTop: 12, textAlign: "center" },
+    studentEnrollment: { color: "#d9e5ff", fontSize: 15, fontWeight: "600", marginTop: 4 },
+    modalActionBtn: {
+        width: "100%",
+        maxWidth: 380,
+        minHeight: 64,
+        borderRadius: 16,
+        backgroundColor: "#071226",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 18,
+        borderWidth: 2,
+        borderColor: "rgba(255,255,255,0.2)",
+    },
+    modalActionBtnText: { fontSize: 20, fontWeight: "900", letterSpacing: 0.4 },
+    primaryBtn: {
+        backgroundColor: APP_THEME.accent,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 44,
         paddingHorizontal: 14,
     },
-    primaryBtnText: { color: APP_THEME.bg, fontWeight: "700" },
+    primaryBtnText: { color: APP_THEME.bg, fontWeight: "800" },
 })

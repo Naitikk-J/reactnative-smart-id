@@ -1,43 +1,59 @@
 {
-  "expo": {
-    "name": "SMART ID React Native",
-    "slug": "reactnative-smart-id",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSCameraUsageDescription": "Camera is required to scan QR codes for access and event verification.",
-        "NSLocationWhenInUseUsageDescription": "Location is required to validate access scans and late return requests."
-      },
-      "bundleIdentifier": "com.naitik1523.reactnative-smart-id"
-    },
-    "android": {
-      "permissions": [
-        "CAMERA",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
-      ],
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-secure-store"
-    ]
-  }
+    "expo": {
+        "name": "SMART ID React Native",
+        "slug": "reactnative-smart-id",
+        "version": "1.0.0",
+        "runtimeVersion": {
+            "policy": "appVersion"
+        },
+        "updates": {
+            "checkAutomatically": "ON_LOAD",
+            "fallbackToCacheTimeout": 0,
+            "url": "https://u.expo.dev/f961c2a6-025b-4941-abaf-2f8516eb1831"
+        },
+        "orientation": "portrait",
+        "icon": "./assets/icon.png",
+        "userInterfaceStyle": "light",
+        "newArchEnabled": true,
+        "splash": {
+            "image": "./assets/splash-icon.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#ffffff"
+        },
+        "ios": {
+            "supportsTablet": true,
+            "infoPlist": {
+                "NSCameraUsageDescription": "Camera is required to scan QR codes for access and event verification.",
+                "NSLocationWhenInUseUsageDescription": "Location is required to validate access scans and late return requests.",
+                "ITSAppUsesNonExemptEncryption": false
+            },
+            "bundleIdentifier": "com.naitik1523.reactnative-smart-id"
+        },
+        "android": {
+            "package": "com.naitik1523.reactnativesmartid",
+            "permissions": [
+                "CAMERA",
+                "ACCESS_FINE_LOCATION",
+                "ACCESS_COARSE_LOCATION"
+            ],
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/adaptive-icon.png",
+                "backgroundColor": "#ffffff"
+            },
+            "edgeToEdgeEnabled": true,
+            "predictiveBackGestureEnabled": false
+        },
+        "web": {
+            "favicon": "./assets/favicon.png"
+        },
+        "plugins": [
+            "expo-secure-store"
+        ],
+        "extra": {
+            "eas": {
+                "projectId": "f961c2a6-025b-4941-abaf-2f8516eb1831"
+            }
+        },
+        "owner": "naitik1523"
+    }
 }
