@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "reactnative-smart-id",
+    "name": "SMART ID React Native",
     "slug": "reactnative-smart-id",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,9 +13,19 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera is required to scan QR codes for access and event verification.",
+        "NSLocationWhenInUseUsageDescription": "Location is required to validate access scans and late return requests."
+      },
+      "bundleIdentifier": "com.naitik1523.reactnative-smart-id"
     },
     "android": {
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -25,6 +35,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }
