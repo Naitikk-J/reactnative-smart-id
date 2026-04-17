@@ -48,9 +48,9 @@ function AppTabs() {
             })}
         >
             <Tabs.Screen name="Dashboard" component={DashboardScreen} />
-            <Tabs.Screen name="Scanner" component={ScannerScreen} />
+            <Tabs.Screen name="Scanner" component={ScannerScreen} options={{ headerShown: false }} />
             <Tabs.Screen name="Logs" component={LogsScreen} />
-            <Tabs.Screen name="Pink Slip" component={PinkSlipScreen} />
+            <Tabs.Screen name="Pink Slip" component={PinkSlipScreen} options={{ headerShown: false }} />
             <Tabs.Screen name="Alerts" component={AlertsScreen} />
         </Tabs.Navigator>
     )
