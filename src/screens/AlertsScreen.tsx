@@ -1,7 +1,25 @@
 import React, { useCallback, useEffect, useState } from "react"
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native"
+import { LinearGradient } from "expo-linear-gradient"
 import { APP_THEME } from "../config/constants"
 import { getMyAlerts } from "../services/alertService"
+
+function formatTime(time: any): string {
+    if (!time) return ""
+    const dt = new Date(time)
+    if (isNaN(dt.getTime())) return ""
+    return dt.toLocaleDateString(undefined, { month: "short", day: "2-digit" }) +
+        ", " +
+        dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: true })
+}
+
+function alertAccent(title?: string): string {
+    const t = String(title ?? "").toUpperCase()
+    if (t.includes("WARN") || t.includes("LATE") || t.includes("OVERDUE")) return APP_THEME.warning
+    if (t.includes("DENIED") || t.includes("REJECT") || t.includes("FAIL")) return APP_THEME.danger
+    if (t.includes("APPROVE") || t.includes("SUCCESS")) return APP_THEME.success
+    return APP_THEME.accent
+}
 
 export default function AlertsScreen() {
     const [items, setItems] = useState<any[]>([])
@@ -32,40 +50,104 @@ export default function AlertsScreen() {
     }
 
     return (
-        <FlatList
-            style={styles.container}
-            contentContainerStyle={styles.content}
-            data={items}
-            keyExtractor={(item, index) => String(item?.id ?? index)}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={APP_THEME.accent} />}
-            ListEmptyComponent={<Text style={styles.empty}>No alerts</Text>}
-            renderItem={({ item }) => {
-                return (
-                    <View style={styles.card}>
-                        <Text style={styles.title}>{String(item?.title ?? "Alert")}</Text>
-                        <Text style={styles.body}>{String(item?.message ?? item?.body ?? "")}</Text>
-                        <Text style={styles.time}>{item?.createdAt ? new Date(item.createdAt).toLocaleString() : ""}</Text>
+        <View style={styles.root}>
+            <LinearGradient
+                colors={["#0A0E21", "#0F1535", "#0A0E21"]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={StyleSheet.absoluteFill}
+            />
+            <FlatList
+                contentContainerStyle={styles.content}
+                data={items}
+                keyExtractor={(item, index) => String(item?.id ?? index)}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={APP_THEME.accent} />
+                }
+                ListEmptyComponent={
+                    <View style={styles.emptyWrap}>
+                        <Text style={styles.emptyIcon}>⚑</Text>
+                        <Text style={styles.emptyTitle}>No alerts yet</Text>
+                        <Text style={styles.emptySub}>You're all caught up!</Text>
                     </View>
-                )
-            }}
-        />
+                }
+                renderItem={({ item }) => {
+                    const color = alertAccent(item?.title)
+                    return (
+                        <View style={[styles.alertTile, { borderLeftColor: color }]}>
+                            <View style={[styles.alertDot, { backgroundColor: color, shadowColor: color }]} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.alertTitle}>{String(item?.title ?? "Alert")}</Text>
+                                <Text style={styles.alertBody}>{String(item?.message ?? item?.body ?? "")}</Text>
+                                <Text style={styles.alertTime}>{formatTime(item?.createdAt)}</Text>
+                            </View>
+                        </View>
+                    )
+                }}
+            />
+        </View>
     )
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: APP_THEME.bg },
-    content: { padding: 14, gap: 10 },
+    root: { flex: 1, backgroundColor: APP_THEME.bg },
     center: { flex: 1, backgroundColor: APP_THEME.bg, justifyContent: "center", alignItems: "center" },
-    card: {
-        backgroundColor: APP_THEME.card,
-        borderColor: APP_THEME.border,
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: 12,
-        gap: 6,
+    content: { padding: 20, paddingBottom: 100, gap: 12 },
+
+    emptyWrap: {
+        alignItems: "center",
+        marginTop: 80,
     },
-    title: { color: APP_THEME.text, fontWeight: "700" },
-    body: { color: APP_THEME.muted, fontSize: 13 },
-    time: { color: APP_THEME.muted, fontSize: 11 },
-    empty: { color: APP_THEME.muted, textAlign: "center", marginTop: 20 },
+    emptyIcon: {
+        fontSize: 48,
+        color: "rgba(255,255,255,0.1)",
+        marginBottom: 16,
+    },
+    emptyTitle: {
+        color: "rgba(255,255,255,0.5)",
+        fontSize: 18,
+        fontWeight: "700",
+    },
+    emptySub: {
+        color: "rgba(255,255,255,0.3)",
+        fontSize: 13,
+        marginTop: 4,
+    },
+
+    alertTile: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 14,
+        backgroundColor: "rgba(255,255,255,0.04)",
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.06)",
+        borderLeftWidth: 3,
+        padding: 18,
+    },
+    alertDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 999,
+        marginTop: 4,
+        shadowOpacity: 0.6,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 0 },
+    },
+    alertTitle: {
+        color: APP_THEME.text,
+        fontWeight: "600",
+        fontSize: 15,
+    },
+    alertBody: {
+        color: "rgba(255,255,255,0.5)",
+        fontSize: 13,
+        marginTop: 4,
+        lineHeight: 18,
+    },
+    alertTime: {
+        color: "rgba(255,255,255,0.3)",
+        fontSize: 11,
+        marginTop: 6,
+    },
 })

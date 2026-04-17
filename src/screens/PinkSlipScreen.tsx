@@ -11,6 +11,7 @@ import {
     TextInput,
     View,
 } from "react-native"
+import { LinearGradient } from "expo-linear-gradient"
 import { APP_THEME } from "../config/constants"
 import { useAuth } from "../context/AuthContext"
 import { createPinkSlip, getMyPinkSlips, getPendingPinkSlips, updatePinkSlipStatus } from "../services/pinkSlipService"
@@ -30,8 +31,6 @@ type PinkSlipItem = {
         department?: string
     }
 }
-
-const APPROVED_PINK = "#FF5FA2"
 
 function hideBackendIds(value?: string): string {
     if (!value) return ""
@@ -79,7 +78,7 @@ function resolveTicketId(slip: PinkSlipItem): string {
 }
 
 function statusColor(status: string): string {
-    if (status === "APPROVED") return APPROVED_PINK
+    if (status === "APPROVED") return APP_THEME.success
     if (status === "REJECTED") return APP_THEME.danger
     return APP_THEME.warning
 }
@@ -219,92 +218,130 @@ export default function PinkSlipScreen() {
     if (loading) {
         return (
             <View style={styles.center}>
-                <ActivityIndicator color="#4ade80" size="large" />
+                <ActivityIndicator color={APP_THEME.accent} size="large" />
             </View>
         )
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // ADMIN VIEW
+    // ══════════════════════════════════════════════════════════════
     if (adminMode) {
         return (
             <View style={styles.root}>
-                <ScrollView
-                    contentContainerStyle={styles.adminScrollContent}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4ade80" />}
-                >
-                    <Text style={styles.adminTitle}>Pink Slip Management</Text>
+                <LinearGradient
+                    colors={["#0A0E21", "#0F1535", "#0A0E21"]}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                />
+                {/* Glass App Bar */}
+                <View style={styles.glassAppBar}>
+                    <View style={{ width: 48 }} />
+                    <Text style={styles.appBarTitle}>Pink Slip Management</Text>
+                    <View style={{ width: 48 }} />
+                </View>
 
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={APP_THEME.accent} />}
+                >
                     {adminItems.length === 0 ? (
                         <View style={styles.adminEmptyWrap}>
-                            <Text style={styles.adminEmptyIcon}>◉</Text>
+                            <View style={styles.adminEmptyIcon}>
+                                <Text style={styles.adminEmptyIconText}>✓</Text>
+                            </View>
                             <Text style={styles.adminEmptyTitle}>No Pending Requests</Text>
                             <Text style={styles.adminEmptySub}>All caught up! New requests will appear here.</Text>
                         </View>
                     ) : (
-                        <View style={styles.adminList}>
-                            {adminItems.map((item, index) => {
-                                const studentName = String(item.student?.fullName ?? "Unknown Student")
-                                const initial = studentName.charAt(0).toUpperCase() || "?"
-                                const enrollment = String(item.student?.enrollmentNo ?? "N/A")
-                                const department = String(item.student?.department ?? "")
-                                const reasonText = hideBackendIds(item.reason?.trim()) || "No reason provided"
-                                const fromDate = formatDateFull(item.fromDate)
-                                const toDate = formatDateFull(item.toDate)
+                        adminItems.map((item, index) => {
+                            const studentName = String(item.student?.fullName ?? "Unknown Student")
+                            const initial = studentName.charAt(0).toUpperCase() || "?"
+                            const enrollment = String(item.student?.enrollmentNo ?? "N/A")
+                            const department = String(item.student?.department ?? "")
+                            const reasonText = hideBackendIds(item.reason?.trim()) || "No reason provided"
+                            const fromDateStr = formatDateFull(item.fromDate)
+                            const toDateStr = formatDateFull(item.toDate)
 
-                                return (
-                                    <View key={String(item.id ?? index)} style={styles.adminCard}>
-                                        <View style={styles.adminCardHeader}>
-                                            <View style={styles.adminAvatar}>
-                                                <Text style={styles.adminAvatarText}>{initial}</Text>
-                                            </View>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={styles.adminStudentName}>{studentName}</Text>
-                                                <Text style={styles.adminStudentMeta}>{enrollment}{department ? ` • ${department}` : ""}</Text>
-                                            </View>
-                                        </View>
-
-                                        <View style={styles.adminDivider} />
-
-                                        <View style={styles.adminReasonWrap}>
-                                            <Text style={styles.adminReasonLabel}>Reason:</Text>
-                                            <Text style={styles.adminReasonValue}>{reasonText}</Text>
-                                        </View>
-
-                                        <View style={styles.adminDateRow}>
-                                            <View style={styles.adminDateChip}>
-                                                <Text style={styles.adminDateLabel}>From</Text>
-                                                <Text style={styles.adminDateValue}>{fromDate}</Text>
-                                            </View>
-                                            <View style={styles.adminDateChip}>
-                                                <Text style={styles.adminDateLabel}>To</Text>
-                                                <Text style={styles.adminDateValue}>{toDate}</Text>
-                                            </View>
-                                        </View>
-
-                                        <View style={styles.adminActionRow}>
-                                            <Pressable
-                                                style={[styles.adminActionBtn, styles.adminDenyBtn]}
-                                                onPress={() => openAdminActionModal(item, "REJECTED")}
-                                            >
-                                                <Text style={styles.adminDenyText}>DENY</Text>
-                                            </Pressable>
-                                            <Pressable
-                                                style={[styles.adminActionBtn, styles.adminApproveBtn]}
-                                                onPress={() => openAdminActionModal(item, "APPROVED")}
-                                            >
-                                                <Text style={styles.adminApproveText}>APPROVE</Text>
-                                            </Pressable>
+                            return (
+                                <View key={String(item.id ?? index)} style={styles.adminCard}>
+                                    {/* Student Header */}
+                                    <View style={styles.adminCardHeader}>
+                                        <LinearGradient
+                                            colors={[APP_THEME.accent, APP_THEME.accentPurple]}
+                                            style={styles.adminAvatar}
+                                        >
+                                            <Text style={styles.adminAvatarText}>{initial}</Text>
+                                        </LinearGradient>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.adminStudentName}>{studentName}</Text>
+                                            <Text style={styles.adminStudentMeta}>
+                                                {enrollment}
+                                                {department ? ` • ${department}` : ""}
+                                            </Text>
                                         </View>
                                     </View>
-                                )
-                            })}
-                        </View>
+
+                                    <View style={styles.adminDivider} />
+
+                                    {/* Reason */}
+                                    <View style={{ gap: 4 }}>
+                                        <Text style={styles.adminReasonLabel}>Reason:</Text>
+                                        <Text style={styles.adminReasonValue}>{reasonText}</Text>
+                                    </View>
+
+                                    {/* Dates */}
+                                    <View style={styles.adminDateRow}>
+                                        <View style={styles.adminDateChip}>
+                                            <Text style={styles.adminDateLabel}>From</Text>
+                                            <View style={styles.adminDateValueRow}>
+                                                <Text style={styles.adminDateIcon}>📅</Text>
+                                                <Text style={styles.adminDateValue}>{fromDateStr}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.adminDateChip}>
+                                            <Text style={styles.adminDateLabel}>To</Text>
+                                            <View style={styles.adminDateValueRow}>
+                                                <Text style={styles.adminDateIcon}>📅</Text>
+                                                <Text style={styles.adminDateValue}>{toDateStr}</Text>
+                                            </View>
+                                        </View>
+                                    </View>
+
+                                    {/* Actions */}
+                                    <View style={styles.adminActionRow}>
+                                        <Pressable
+                                            style={styles.adminDenyBtn}
+                                            onPress={() => openAdminActionModal(item, "REJECTED")}
+                                        >
+                                            <Text style={styles.adminDenyText}>DENY</Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={styles.adminApproveBtnWrap}
+                                            onPress={() => openAdminActionModal(item, "APPROVED")}
+                                        >
+                                            <LinearGradient
+                                                colors={[APP_THEME.success, "#00C853"]}
+                                                style={styles.adminApproveBtn}
+                                            >
+                                                <Text style={styles.adminApproveText}>APPROVE</Text>
+                                            </LinearGradient>
+                                        </Pressable>
+                                    </View>
+                                </View>
+                            )
+                        })
                     )}
                 </ScrollView>
 
+                {/* Admin Action Modal */}
                 <Modal visible={actionModalVisible} transparent animationType="fade" onRequestClose={closeAdminActionModal}>
                     <View style={styles.modalBackdrop}>
                         <View style={styles.modalCard}>
-                            <Text style={styles.modalTitle}>{actionStatus === "APPROVED" ? "Approve Request?" : "Deny Request?"}</Text>
+                            <Text style={styles.modalTitle}>
+                                {actionStatus === "APPROVED" ? "Approve Request?" : "Deny Request?"}
+                            </Text>
                             <TextInput
                                 style={styles.modalInput}
                                 value={adminRemark}
@@ -317,21 +354,23 @@ export default function PinkSlipScreen() {
                                 <Pressable style={styles.modalCancelBtn} onPress={closeAdminActionModal}>
                                     <Text style={styles.modalCancelText}>Cancel</Text>
                                 </Pressable>
-                                <Pressable
-                                    style={[
-                                        styles.modalConfirmBtn,
-                                        actionStatus === "APPROVED" ? styles.modalConfirmApprove : styles.modalConfirmDeny,
-                                    ]}
-                                    onPress={onConfirmAdminAction}
-                                    disabled={actionLoading}
-                                >
-                                    {actionLoading ? (
-                                        <ActivityIndicator color="#fff" size="small" />
-                                    ) : (
-                                        <Text style={styles.modalConfirmText}>
-                                            {actionStatus === "APPROVED" ? "Confirm Approval" : "Confirm Denial"}
-                                        </Text>
-                                    )}
+                                <Pressable onPress={onConfirmAdminAction} disabled={actionLoading}>
+                                    <LinearGradient
+                                        colors={
+                                            actionStatus === "APPROVED"
+                                                ? [APP_THEME.success, "#00C853"]
+                                                : [APP_THEME.danger, "#D50000"]
+                                        }
+                                        style={styles.modalConfirmBtn}
+                                    >
+                                        {actionLoading ? (
+                                            <ActivityIndicator color="#fff" size="small" />
+                                        ) : (
+                                            <Text style={styles.modalConfirmText}>
+                                                {actionStatus === "APPROVED" ? "Confirm Approval" : "Confirm Denial"}
+                                            </Text>
+                                        )}
+                                    </LinearGradient>
                                 </Pressable>
                             </View>
                         </View>
@@ -341,107 +380,157 @@ export default function PinkSlipScreen() {
         )
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // STUDENT VIEW
+    // ══════════════════════════════════════════════════════════════
     return (
         <View style={styles.root}>
+            <LinearGradient
+                colors={["#0A0E21", "#0F1535", "#0A0E21"]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={StyleSheet.absoluteFill}
+            />
+            {/* Glass App Bar */}
+            <View style={styles.glassAppBar}>
+                <View style={{ width: 48 }} />
+                <Text style={styles.appBarTitle}>Pink Slip</Text>
+                <View style={{ width: 48 }} />
+            </View>
+
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4ade80" />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={APP_THEME.accent} />}
             >
                 <Text style={styles.pageTitle}>Request Leave</Text>
                 <Text style={styles.pageSubtitle}>Submit a pink slip request to your warden for approval.</Text>
 
+                {/* Stat Chips */}
                 <View style={styles.statsRow}>
-                    <View style={[styles.statChip, { borderColor: "rgba(255,95,162,0.35)", backgroundColor: "rgba(255,95,162,0.1)" }]}>
-                        <Text style={[styles.statCount, { color: APPROVED_PINK }]}>{approvedCount}</Text>
+                    <View style={[styles.statChip, { borderColor: APP_THEME.success + "33", backgroundColor: APP_THEME.success + "14" }]}>
+                        <Text style={[styles.statCount, { color: APP_THEME.success }]}>{approvedCount}</Text>
                         <Text style={styles.statLabel}>Approved</Text>
                     </View>
-                    <View style={[styles.statChip, { borderColor: "rgba(250,204,21,0.35)", backgroundColor: "rgba(250,204,21,0.1)" }]}>
+                    <View style={[styles.statChip, { borderColor: APP_THEME.warning + "33", backgroundColor: APP_THEME.warning + "14" }]}>
                         <Text style={[styles.statCount, { color: APP_THEME.warning }]}>{pendingCount}</Text>
                         <Text style={styles.statLabel}>Pending</Text>
                     </View>
-                    <View style={[styles.statChip, { borderColor: "rgba(248,113,113,0.35)", backgroundColor: "rgba(248,113,113,0.1)" }]}>
+                    <View style={[styles.statChip, { borderColor: APP_THEME.danger + "33", backgroundColor: APP_THEME.danger + "14" }]}>
                         <Text style={[styles.statCount, { color: APP_THEME.danger }]}>{rejectedCount}</Text>
                         <Text style={styles.statLabel}>Rejected</Text>
                     </View>
                 </View>
 
+                {/* Active Ticket Card */}
                 {latestApprovedSlip ? (
                     <View style={styles.ticketCard}>
-                        <View style={styles.ticketTopRow}>
-                            <Text style={styles.ticketTitle}>Pink Slip Ticket</Text>
-                            <View style={styles.ticketActiveChip}>
-                                <Text style={styles.ticketActiveText}>ACTIVE</Text>
+                        <LinearGradient
+                            colors={[APP_THEME.accent + "26", APP_THEME.accentPurple + "14"]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={StyleSheet.absoluteFill}
+                        />
+                        <View style={styles.ticketCardInner}>
+                            <View style={styles.ticketTopRow}>
+                                <Text style={styles.ticketIcon}>🎫</Text>
+                                <Text style={styles.ticketTitle}>Pink Slip Ticket</Text>
+                                <LinearGradient
+                                    colors={[APP_THEME.accent, APP_THEME.accentPurple]}
+                                    style={styles.ticketActiveChip}
+                                >
+                                    <Text style={styles.ticketActiveText}>ACTIVE</Text>
+                                </LinearGradient>
                             </View>
-                        </View>
 
-                        <Text style={styles.ticketId}>Ticket ID: {resolveTicketId(latestApprovedSlip)}</Text>
+                            <View style={styles.ticketDivider} />
 
-                        <View style={styles.ticketReasonRow}>
-                            <View style={styles.ticketBadgeIcon}>
-                                <Text style={styles.ticketBadgeIconText}>✓</Text>
-                            </View>
-                            <Text style={styles.ticketReason} numberOfLines={2}>
-                                {hideBackendIds(latestApprovedSlip.reason?.trim()) || "Approved leave"}
-                            </Text>
-                        </View>
+                            <Text style={styles.ticketId}>Ticket ID: {resolveTicketId(latestApprovedSlip)}</Text>
 
-                        <View style={styles.ticketMetaRow}>
-                            <View style={styles.ticketMetaCard}>
-                                <Text style={styles.ticketMetaLabel}>VALIDITY</Text>
-                                <Text style={styles.ticketMetaValue}>
-                                    {formatDateShort(latestApprovedSlip.fromDate)} - {formatDateFull(latestApprovedSlip.toDate)}
+                            <View style={styles.ticketReasonRow}>
+                                <LinearGradient
+                                    colors={[APP_THEME.accent, APP_THEME.accentPurple]}
+                                    style={styles.ticketBadgeIcon}
+                                >
+                                    <Text style={styles.ticketBadgeIconText}>✓</Text>
+                                </LinearGradient>
+                                <Text style={styles.ticketReason} numberOfLines={2}>
+                                    {hideBackendIds(latestApprovedSlip.reason?.trim()) || "Approved leave"}
                                 </Text>
                             </View>
-                            <View style={styles.ticketMetaCard}>
-                                <Text style={styles.ticketMetaLabel}>STATUS</Text>
-                                <Text style={styles.ticketMetaValue}>APPROVED</Text>
-                            </View>
-                        </View>
 
-                        {hideBackendIds(latestApprovedSlip.remarks?.trim()) ? (
-                            <Text style={styles.ticketRemark}>
-                                Warden note: {hideBackendIds(latestApprovedSlip.remarks?.trim())}
-                            </Text>
-                        ) : null}
+                            <View style={styles.ticketMetaRow}>
+                                <View style={styles.ticketMetaCard}>
+                                    <Text style={styles.ticketMetaLabel}>VALIDITY</Text>
+                                    <Text style={styles.ticketMetaValue}>
+                                        {formatDateShort(latestApprovedSlip.fromDate)} - {formatDateFull(latestApprovedSlip.toDate)}
+                                    </Text>
+                                </View>
+                                <View style={styles.ticketMetaCard}>
+                                    <Text style={styles.ticketMetaLabel}>STATUS</Text>
+                                    <Text style={styles.ticketMetaValue}>APPROVED</Text>
+                                </View>
+                            </View>
+
+                            {hideBackendIds(latestApprovedSlip.remarks?.trim()) ? (
+                                <Text style={styles.ticketRemark}>
+                                    Warden note: {hideBackendIds(latestApprovedSlip.remarks?.trim())}
+                                </Text>
+                            ) : null}
+                        </View>
                     </View>
                 ) : null}
 
+                {/* Form Card */}
                 <View style={styles.formCard}>
                     <TextInput
                         value={reason}
                         onChangeText={setReason}
-                        style={[styles.input, styles.reasonInput]}
+                        style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]}
                         multiline
                         placeholder="Reason for leave"
-                        placeholderTextColor="rgba(255,255,255,0.38)"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
                     />
 
                     <View style={styles.dateRow}>
-                        <TextInput
-                            value={fromDate}
-                            onChangeText={setFromDate}
-                            style={[styles.input, styles.dateInput]}
-                            placeholder="From (YYYY-MM-DD)"
-                            placeholderTextColor="rgba(255,255,255,0.38)"
-                        />
-                        <TextInput
-                            value={toDate}
-                            onChangeText={setToDate}
-                            style={[styles.input, styles.dateInput]}
-                            placeholder="To (YYYY-MM-DD)"
-                            placeholderTextColor="rgba(255,255,255,0.38)"
-                        />
+                        <View style={styles.dateSelector}>
+                            <Text style={styles.dateSelectorLabel}>From</Text>
+                            <TextInput
+                                value={fromDate}
+                                onChangeText={setFromDate}
+                                style={styles.dateSelectorInput}
+                                placeholder="YYYY-MM-DD"
+                                placeholderTextColor="rgba(255,255,255,0.3)"
+                            />
+                        </View>
+                        <View style={styles.dateSelector}>
+                            <Text style={styles.dateSelectorLabel}>To</Text>
+                            <TextInput
+                                value={toDate}
+                                onChangeText={setToDate}
+                                style={styles.dateSelectorInput}
+                                placeholder="YYYY-MM-DD"
+                                placeholderTextColor="rgba(255,255,255,0.3)"
+                            />
+                        </View>
                     </View>
 
-                    <Pressable style={styles.submitBtn} onPress={onCreate} disabled={submitLoading}>
-                        {submitLoading ? (
-                            <ActivityIndicator color="#121212" />
-                        ) : (
-                            <Text style={styles.submitBtnText}>SUBMIT REQUEST</Text>
-                        )}
+                    <Pressable onPress={onCreate} disabled={submitLoading}>
+                        <LinearGradient
+                            colors={submitLoading ? ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"] : [APP_THEME.accent, APP_THEME.accentPurple]}
+                            start={{ x: 0, y: 0.5 }}
+                            end={{ x: 1, y: 0.5 }}
+                            style={styles.submitBtn}
+                        >
+                            {submitLoading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.submitBtnText}>SUBMIT REQUEST</Text>
+                            )}
+                        </LinearGradient>
                     </Pressable>
                 </View>
 
+                {/* History */}
                 <Text style={styles.historyTitle}>Request History</Text>
 
                 {studentItems.length === 0 ? (
@@ -449,7 +538,7 @@ export default function PinkSlipScreen() {
                         <Text style={styles.emptyText}>No pink slips yet. Create your first request above.</Text>
                     </View>
                 ) : (
-                    <View style={styles.historyList}>
+                    <View style={{ gap: 10 }}>
                         {studentItems.map((item, index) => {
                             const status = String(item.status ?? "PENDING").toUpperCase()
                             const color = statusColor(status)
@@ -457,22 +546,14 @@ export default function PinkSlipScreen() {
                             const safeReason = hideBackendIds(item.reason?.trim()) || "No reason provided"
 
                             return (
-                                <View
-                                    key={String(item.id ?? index)}
-                                    style={[
-                                        styles.historyCard,
-                                        status === "APPROVED"
-                                            ? { backgroundColor: "rgba(255,95,162,0.08)", borderColor: "rgba(255,95,162,0.45)" }
-                                            : null,
-                                    ]}
-                                >
-                                    <View style={styles.historyIconWrap}>
+                                <View key={String(item.id ?? index)} style={[styles.historyCard, { borderColor: color + "1A" }]}>
+                                    <View style={[styles.historyIconWrap, { backgroundColor: color + "1A" }]}>
                                         <Text style={[styles.historyIcon, { color }]}>
                                             {status === "APPROVED" ? "✓" : status === "REJECTED" ? "✕" : "⌛"}
                                         </Text>
                                     </View>
 
-                                    <View style={styles.historyBody}>
+                                    <View style={{ flex: 1 }}>
                                         <Text style={styles.historyTicket}>Ticket: {resolveTicketId(item)}</Text>
                                         <Text style={styles.historyReason}>{safeReason}</Text>
                                         <Text style={styles.historyDates}>
@@ -481,11 +562,13 @@ export default function PinkSlipScreen() {
                                         {item.updatedAt ? (
                                             <Text style={styles.historyUpdated}>Updated {formatDateTime(item.updatedAt)}</Text>
                                         ) : null}
-                                        {remarks ? <Text style={styles.historyRemark}>Remark: {remarks}</Text> : null}
+                                        {remarks ? (
+                                            <Text style={styles.historyRemark}>Remark: {remarks}</Text>
+                                        ) : null}
                                     </View>
 
-                                    <View style={[styles.statusPill, { borderColor: `${color}66`, backgroundColor: `${color}1A` }]}>
-                                        <Text style={[styles.statusPillText, { color }]}>{status}</Text>
+                                    <View style={[styles.historyStatusPill, { backgroundColor: color + "1A", borderColor: color + "40" }]}>
+                                        <Text style={[styles.historyStatusText, { color }]}>{status}</Text>
                                     </View>
                                 </View>
                             )
@@ -498,151 +581,181 @@ export default function PinkSlipScreen() {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: "#121212" },
-    center: { flex: 1, backgroundColor: "#121212", alignItems: "center", justifyContent: "center" },
+    root: { flex: 1, backgroundColor: APP_THEME.bg },
+    center: { flex: 1, backgroundColor: APP_THEME.bg, alignItems: "center", justifyContent: "center" },
 
-    scrollContent: { padding: 24, paddingBottom: 30 },
-    pageTitle: { color: "#fff", fontSize: 26, fontWeight: "900", letterSpacing: -0.5 },
-    pageSubtitle: { color: "rgba(255,255,255,0.54)", fontSize: 14, marginTop: 8 },
+    // ── Glass App Bar ──
+    glassAppBar: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingTop: 56,
+        paddingBottom: 16,
+        paddingHorizontal: 16,
+        backgroundColor: "rgba(255,255,255,0.03)",
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(255,255,255,0.06)",
+    },
+    appBarTitle: {
+        color: APP_THEME.text,
+        fontSize: 18,
+        fontWeight: "700",
+    },
 
-    statsRow: { flexDirection: "row", gap: 10, marginTop: 24 },
+    scrollContent: { padding: 20, paddingBottom: 120 },
+
+    pageTitle: { color: APP_THEME.text, fontSize: 24, fontWeight: "800" },
+    pageSubtitle: { color: APP_THEME.muted, fontSize: 13, marginTop: 6 },
+
+    // ── Stats ──
+    statsRow: { flexDirection: "row", gap: 10, marginTop: 20 },
     statChip: {
         flex: 1,
-        borderRadius: 12,
+        borderRadius: 14,
         borderWidth: 1,
         paddingHorizontal: 12,
         paddingVertical: 10,
     },
-    statCount: { fontSize: 18, fontWeight: "900" },
-    statLabel: { color: "rgba(255,255,255,0.72)", fontSize: 11, fontWeight: "600", marginTop: 2 },
+    statCount: { fontSize: 20, fontWeight: "800" },
+    statLabel: { color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: "600", marginTop: 2 },
 
+    // ── Ticket Card ──
     ticketCard: {
         marginTop: 16,
         borderRadius: 22,
-        borderWidth: 2,
-        borderColor: "rgba(255,95,162,0.7)",
-        backgroundColor: "#FFDCEC",
-        padding: 18,
+        borderWidth: 1,
+        borderColor: APP_THEME.accent + "40",
+        overflow: "hidden",
+        shadowColor: APP_THEME.accent,
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 4,
     },
-    ticketTopRow: { flexDirection: "row", alignItems: "center" },
-    ticketTitle: { color: "#7B0F40", fontSize: 16, fontWeight: "800" },
+    ticketCardInner: { padding: 18 },
+    ticketTopRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    ticketIcon: { fontSize: 18 },
+    ticketTitle: { color: APP_THEME.text, fontSize: 15, fontWeight: "700", flex: 1 },
     ticketActiveChip: {
-        marginLeft: "auto",
         borderRadius: 999,
-        backgroundColor: "#B3155B",
         paddingHorizontal: 10,
         paddingVertical: 4,
     },
-    ticketActiveText: { color: "#fff", fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
-    ticketId: { color: "#7B0F40", marginTop: 12, fontSize: 12, fontWeight: "800", letterSpacing: 0.4 },
+    ticketActiveText: { color: "#fff", fontSize: 10, fontWeight: "800", letterSpacing: 0.8 },
+    ticketDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.08)", marginVertical: 12 },
+    ticketId: { color: APP_THEME.accent, fontSize: 12, fontWeight: "800", letterSpacing: 0.4 },
     ticketReasonRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 10 },
     ticketBadgeIcon: {
-        width: 52,
-        height: 52,
+        width: 48,
+        height: 48,
         borderRadius: 14,
-        borderWidth: 1,
-        borderColor: "rgba(179,21,91,0.4)",
-        backgroundColor: "rgba(179,21,91,0.1)",
         alignItems: "center",
         justifyContent: "center",
     },
-    ticketBadgeIconText: { color: "#B3155B", fontSize: 32, fontWeight: "900" },
-    ticketReason: { flex: 1, color: "#5A0D30", fontSize: 14, fontWeight: "700" },
-
+    ticketBadgeIconText: { color: "#fff", fontSize: 28, fontWeight: "900" },
+    ticketReason: { flex: 1, color: APP_THEME.text, fontSize: 14, fontWeight: "600" },
     ticketMetaRow: { flexDirection: "row", gap: 10, marginTop: 12 },
     ticketMetaCard: {
         flex: 1,
-        borderRadius: 10,
+        borderRadius: 12,
+        backgroundColor: "rgba(255,255,255,0.06)",
         borderWidth: 1,
-        borderColor: "rgba(179,21,91,0.35)",
-        backgroundColor: "rgba(179,21,91,0.15)",
+        borderColor: "rgba(255,255,255,0.08)",
         paddingHorizontal: 10,
         paddingVertical: 8,
     },
-    ticketMetaLabel: { color: "#9D3D69", fontSize: 10, fontWeight: "800", letterSpacing: 0.8 },
-    ticketMetaValue: { color: "#5A0D30", fontSize: 12, fontWeight: "700", marginTop: 4 },
+    ticketMetaLabel: { color: APP_THEME.accent + "B3", fontSize: 10, fontWeight: "800", letterSpacing: 0.8 },
+    ticketMetaValue: { color: APP_THEME.text, fontSize: 12, fontWeight: "600", marginTop: 4 },
     ticketRemark: {
         marginTop: 10,
-        color: "#7E3458",
+        color: "rgba(255,255,255,0.5)",
         fontStyle: "italic",
         fontSize: 12,
-        fontWeight: "600",
     },
 
+    // ── Form Card ──
     formCard: {
         marginTop: 16,
-        borderRadius: 20,
-        borderWidth: 2,
-        borderColor: "#333333",
-        backgroundColor: "#1E1E1E",
-        padding: 20,
-        shadowColor: "#000",
-        shadowOpacity: 0.25,
-        shadowOffset: { width: 4, height: 4 },
-        shadowRadius: 0,
-        elevation: 3,
-        gap: 14,
+        borderRadius: 22,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.08)",
+        backgroundColor: "rgba(255,255,255,0.05)",
+        padding: 22,
+        gap: 20,
     },
     input: {
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: "#333333",
-        backgroundColor: "#1E1E1E",
-        color: "#fff",
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-    },
-    reasonInput: { minHeight: 90, textAlignVertical: "top" },
-    dateRow: { flexDirection: "row", gap: 12 },
-    dateInput: { flex: 1 },
-    submitBtn: {
-        minHeight: 50,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: "#121212",
-        backgroundColor: "#4ade80",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    submitBtnText: { color: "#121212", fontSize: 16, fontWeight: "900", letterSpacing: 1 },
-
-    historyTitle: { color: "#fff", fontSize: 22, fontWeight: "800", marginTop: 28, marginBottom: 14 },
-    emptyState: {
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.07)",
+        borderColor: APP_THEME.glassBorder,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        color: APP_THEME.text,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+    },
+    dateRow: { flexDirection: "row", gap: 14 },
+    dateSelector: {
+        flex: 1,
+        borderRadius: 14,
+        backgroundColor: "rgba(255,255,255,0.04)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.08)",
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+    },
+    dateSelectorLabel: { color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: "600", marginBottom: 6 },
+    dateSelectorInput: {
+        color: APP_THEME.text,
+        fontSize: 13,
+        fontWeight: "600",
+        padding: 0,
+    },
+    submitBtn: {
+        height: 56,
+        borderRadius: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: APP_THEME.accent,
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 8,
+    },
+    submitBtnText: { color: "#fff", fontSize: 15, fontWeight: "800", letterSpacing: 1 },
+
+    // ── History ──
+    historyTitle: { color: APP_THEME.text, fontSize: 18, fontWeight: "700", marginTop: 32, marginBottom: 14 },
+    emptyState: {
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.06)",
         backgroundColor: "rgba(255,255,255,0.03)",
         padding: 18,
     },
-    emptyText: { color: "rgba(255,255,255,0.6)" },
+    emptyText: { color: "rgba(255,255,255,0.4)" },
 
-    historyList: { gap: 12 },
     historyCard: {
-        borderRadius: 16,
+        borderRadius: 18,
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.07)",
         backgroundColor: "rgba(255,255,255,0.03)",
         padding: 16,
         flexDirection: "row",
         alignItems: "flex-start",
     },
     historyIconWrap: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        backgroundColor: "rgba(255,255,255,0.08)",
+        width: 44,
+        height: 44,
+        borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
         marginRight: 14,
     },
-    historyIcon: { fontSize: 24, fontWeight: "900" },
-    historyBody: { flex: 1 },
-    historyTicket: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: "700" },
-    historyReason: { color: "#fff", fontSize: 16, fontWeight: "700", marginTop: 4 },
-    historyDates: { color: "rgba(255,255,255,0.54)", fontSize: 13, marginTop: 4 },
-    historyUpdated: { color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 4 },
-    historyRemark: { color: "rgba(255,255,255,0.72)", fontSize: 12, fontStyle: "italic", marginTop: 8 },
-    statusPill: {
+    historyIcon: { fontSize: 20, fontWeight: "900" },
+    historyTicket: { color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: "700" },
+    historyReason: { color: APP_THEME.text, fontSize: 15, fontWeight: "600", marginTop: 3 },
+    historyDates: { color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 3 },
+    historyUpdated: { color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 3 },
+    historyRemark: { color: "rgba(255,255,255,0.5)", fontSize: 12, fontStyle: "italic", marginTop: 6 },
+    historyStatusPill: {
         marginLeft: 10,
         borderRadius: 20,
         borderWidth: 1,
@@ -650,128 +763,143 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         alignSelf: "center",
     },
-    statusPillText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
+    historyStatusText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
 
-    adminScrollContent: { padding: 16, paddingBottom: 28 },
-    adminTitle: {
-        color: "#fff",
-        fontSize: 24,
-        fontWeight: "900",
-        letterSpacing: 0.8,
-        textAlign: "center",
-        marginBottom: 16,
-    },
-    adminEmptyWrap: {
-        marginTop: 70,
+    // ── Admin ──
+    adminEmptyWrap: { marginTop: 70, alignItems: "center", paddingHorizontal: 20 },
+    adminEmptyIcon: {
+        width: 80,
+        height: 80,
+        borderRadius: 24,
+        backgroundColor: APP_THEME.success + "14",
         alignItems: "center",
-        paddingHorizontal: 20,
+        justifyContent: "center",
     },
-    adminEmptyIcon: { color: "rgba(255,255,255,0.1)", fontSize: 78, fontWeight: "900" },
-    adminEmptyTitle: { color: "#fff", fontSize: 20, fontWeight: "800", marginTop: 8 },
-    adminEmptySub: { color: "rgba(255,255,255,0.5)", textAlign: "center", marginTop: 8 },
+    adminEmptyIconText: { color: APP_THEME.success + "4D", fontSize: 40, fontWeight: "900" },
+    adminEmptyTitle: { color: APP_THEME.text, fontSize: 20, fontWeight: "700", marginTop: 24 },
+    adminEmptySub: { color: "rgba(255,255,255,0.4)", textAlign: "center", marginTop: 8 },
 
-    adminList: { gap: 16 },
     adminCard: {
-        backgroundColor: "#1E1E1E",
-        borderRadius: 20,
-        borderWidth: 1.5,
-        borderColor: "#333333",
-        padding: 16,
+        backgroundColor: "rgba(255,255,255,0.04)",
+        borderRadius: 22,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.08)",
+        padding: 18,
+        marginBottom: 16,
         shadowColor: "#000",
-        shadowOpacity: 0.25,
-        shadowOffset: { width: 4, height: 4 },
-        shadowRadius: 0,
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
         elevation: 4,
     },
     adminCardHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
     adminAvatar: {
         width: 44,
         height: 44,
-        borderRadius: 22,
-        backgroundColor: "rgba(74,222,128,0.1)",
+        borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
     },
-    adminAvatarText: { color: "#4ade80", fontWeight: "800", fontSize: 18 },
-    adminStudentName: { color: "#fff", fontWeight: "800", fontSize: 16 },
-    adminStudentMeta: { color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2 },
-    adminDivider: { height: 1, backgroundColor: "#333333", marginVertical: 14 },
-    adminReasonWrap: { gap: 4 },
-    adminReasonLabel: { color: "rgba(255,255,255,0.38)", fontSize: 12, fontWeight: "700" },
-    adminReasonValue: { color: "#fff", fontSize: 14, lineHeight: 20 },
+    adminAvatarText: { color: "#fff", fontWeight: "800", fontSize: 18 },
+    adminStudentName: { color: APP_THEME.text, fontWeight: "600", fontSize: 15 },
+    adminStudentMeta: { color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 },
+    adminDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.06)", marginVertical: 14 },
+    adminReasonLabel: { color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: "700" },
+    adminReasonValue: { color: "rgba(255,255,255,0.85)", fontSize: 14 },
 
     adminDateRow: { flexDirection: "row", gap: 12, marginTop: 14 },
     adminDateChip: {
         flex: 1,
-        borderRadius: 8,
-        backgroundColor: "rgba(255,255,255,0.05)",
-        padding: 8,
         gap: 4,
     },
-    adminDateLabel: { color: "rgba(255,255,255,0.38)", fontSize: 11, fontWeight: "700" },
-    adminDateValue: { color: "#fff", fontSize: 12, fontWeight: "800" },
-
-    adminActionRow: { flexDirection: "row", gap: 12, marginTop: 16 },
-    adminActionBtn: {
-        flex: 1,
-        minHeight: 44,
+    adminDateLabel: { color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: "700" },
+    adminDateValueRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        padding: 10,
         borderRadius: 12,
+        backgroundColor: "rgba(255,255,255,0.04)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.06)",
+    },
+    adminDateIcon: { fontSize: 12 },
+    adminDateValue: { color: APP_THEME.text, fontSize: 12, fontWeight: "600" },
+
+    adminActionRow: { flexDirection: "row", gap: 12, marginTop: 18 },
+    adminDenyBtn: {
+        flex: 1,
+        height: 46,
+        borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
+        borderColor: APP_THEME.danger + "66",
     },
-    adminDenyBtn: { borderColor: APP_THEME.danger, backgroundColor: "rgba(239,71,111,0.08)" },
-    adminApproveBtn: { borderColor: "#4ade80", backgroundColor: "#4ade80" },
-    adminDenyText: { color: APP_THEME.danger, fontWeight: "800", letterSpacing: 0.6 },
-    adminApproveText: { color: "#fff", fontWeight: "800", letterSpacing: 0.6 },
+    adminDenyText: { color: APP_THEME.danger, fontWeight: "700", fontSize: 13 },
+    adminApproveBtnWrap: {
+        flex: 1,
+        borderRadius: 14,
+        overflow: "hidden",
+        shadowColor: APP_THEME.success,
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 4,
+    },
+    adminApproveBtn: {
+        height: 46,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    adminApproveText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 
+    // ── Modals ──
     modalBackdrop: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.45)",
+        backgroundColor: "rgba(0,0,0,0.6)",
         alignItems: "center",
         justifyContent: "center",
         padding: 20,
     },
     modalCard: {
         width: "100%",
-        borderRadius: 16,
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: "#333333",
-        backgroundColor: "#1E1E1E",
-        padding: 16,
+        borderColor: APP_THEME.glassBorder,
+        backgroundColor: APP_THEME.surfaceDark,
+        padding: 20,
         gap: 12,
     },
-    modalTitle: { color: "#fff", fontSize: 18, fontWeight: "800" },
+    modalTitle: { color: APP_THEME.text, fontSize: 18, fontWeight: "700" },
     modalInput: {
-        borderRadius: 12,
+        borderRadius: 14,
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.14)",
-        backgroundColor: "rgba(255,255,255,0.06)",
-        color: "#fff",
-        paddingHorizontal: 12,
-        paddingVertical: 10,
+        borderColor: APP_THEME.glassBorder,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        color: APP_THEME.text,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
         minHeight: 78,
         textAlignVertical: "top",
     },
-    modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
+    modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 4 },
     modalCancelBtn: {
-        minHeight: 40,
-        borderRadius: 10,
+        height: 44,
+        borderRadius: 14,
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.2)",
-        paddingHorizontal: 14,
+        paddingHorizontal: 16,
         alignItems: "center",
         justifyContent: "center",
     },
-    modalCancelText: { color: "rgba(255,255,255,0.7)", fontWeight: "700" },
+    modalCancelText: { color: "rgba(255,255,255,0.5)", fontWeight: "700" },
     modalConfirmBtn: {
-        minHeight: 40,
-        borderRadius: 10,
-        paddingHorizontal: 14,
+        height: 44,
+        borderRadius: 14,
+        paddingHorizontal: 20,
         alignItems: "center",
         justifyContent: "center",
     },
-    modalConfirmApprove: { backgroundColor: "#4ade80" },
-    modalConfirmDeny: { backgroundColor: APP_THEME.danger },
-    modalConfirmText: { color: "#fff", fontWeight: "800" },
+    modalConfirmText: { color: "#fff", fontWeight: "700" },
 })

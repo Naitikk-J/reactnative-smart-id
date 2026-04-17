@@ -27,15 +27,20 @@ function AppTabs() {
     return (
         <Tabs.Navigator
             screenOptions={({ route }) => ({
-                headerStyle: { backgroundColor: APP_THEME.card, shadowColor: "transparent" },
-                headerTitleStyle: { color: APP_THEME.text, fontWeight: "700" },
+                headerStyle: {
+                    backgroundColor: APP_THEME.surfaceDark,
+                    shadowColor: "transparent",
+                    borderBottomWidth: 1,
+                    borderBottomColor: APP_THEME.glassBorder,
+                },
+                headerTitleStyle: { color: APP_THEME.text, fontWeight: "700", fontSize: 17 },
                 headerTintColor: APP_THEME.text,
                 sceneStyle: { backgroundColor: APP_THEME.bg },
                 tabBarStyle: styles.tabBar,
                 tabBarItemStyle: styles.tabItem,
                 tabBarLabelStyle: styles.tabLabel,
                 tabBarActiveTintColor: APP_THEME.accent,
-                tabBarInactiveTintColor: APP_THEME.muted,
+                tabBarInactiveTintColor: "rgba(255,255,255,0.4)",
                 tabBarIcon: ({ color, focused }) => {
                     const tab = TAB_META[route.name] ?? { icon: "•", title: route.name }
                     return (
@@ -89,17 +94,19 @@ const styles = StyleSheet.create({
         left: 12,
         right: 12,
         bottom: 12,
-        height: 70,
+        height: 72,
         borderTopColor: "transparent",
         borderRadius: 22,
         paddingTop: 6,
         paddingBottom: Platform.select({ ios: 12, default: 8 }),
-        backgroundColor: APP_THEME.card,
+        backgroundColor: APP_THEME.surfaceDark,
+        borderWidth: 1,
+        borderColor: APP_THEME.glassBorder,
         shadowColor: "#000",
-        shadowOpacity: 0.3,
-        shadowRadius: 14,
+        shadowOpacity: 0.4,
+        shadowRadius: 20,
         shadowOffset: { width: 0, height: 10 },
-        elevation: 16,
+        elevation: 20,
     },
     tabItem: {
         marginHorizontal: 2,
@@ -111,14 +118,14 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     iconWrap: {
-        width: 30,
-        height: 24,
+        width: 32,
+        height: 26,
         alignItems: "center",
         justifyContent: "center",
         borderRadius: 10,
     },
     iconWrapActive: {
-        backgroundColor: "rgba(22,214,163,0.14)",
+        backgroundColor: "rgba(0,212,255,0.14)",
     },
     iconText: {
         fontSize: 16,

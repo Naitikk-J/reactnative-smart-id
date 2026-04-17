@@ -12,6 +12,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera"
 import { useNavigation } from "@react-navigation/native"
 import * as Location from "expo-location"
+import { LinearGradient } from "expo-linear-gradient"
 import { APP_THEME } from "../config/constants"
 import { accessScan, confirmEventMeal } from "../services/scanService"
 import { ScanResult } from "../types/ScanResult"
@@ -41,6 +42,9 @@ export default function ScannerScreen() {
     const lastScanAtRef = useRef<number>(0)
     const locationPermissionGrantedRef = useRef<boolean | null>(null)
     const lastLocationRef = useRef<CachedLocation | null>(null)
+
+    const isEntry = mode === "ENTRY"
+    const modeColor = isEntry ? APP_THEME.accent : APP_THEME.warning
 
     const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
         return await new Promise<T>((resolve, reject) => {
@@ -120,13 +124,13 @@ export default function ScannerScreen() {
 
     const gpsStatusText = useMemo(() => {
         const latest = lastLocationRef.current
-        if (!latest) return "Wait for GPS..."
-        return `GPS Ready (${Math.max(1, Math.round(latest.accuracy))}m accuracy)`
+        if (!latest) return "Waiting for GPS..."
+        return `GPS Ready (${Math.max(1, Math.round(latest.accuracy))}m)`
     }, [isProcessing, isResultModalVisible])
 
     const resultTone = useMemo(() => {
         if (!lastResult) return APP_THEME.muted
-        if (lastResult.badge === "GREEN") return APP_THEME.accent
+        if (lastResult.badge === "GREEN") return APP_THEME.success
         if (lastResult.badge === "AMBER") return APP_THEME.warning
         return APP_THEME.danger
     }, [lastResult])
@@ -246,8 +250,15 @@ export default function ScannerScreen() {
         return (
             <View style={styles.center}>
                 <Text style={styles.permissionTitle}>Camera permission required</Text>
-                <Pressable style={styles.permissionButton} onPress={requestCameraPermission}>
-                    <Text style={styles.permissionButtonText}>Allow Camera</Text>
+                <Pressable onPress={requestCameraPermission}>
+                    <LinearGradient
+                        colors={[APP_THEME.accent, APP_THEME.accentPurple]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.permissionButton}
+                    >
+                        <Text style={styles.permissionButtonText}>Allow Camera</Text>
+                    </LinearGradient>
                 </Pressable>
             </View>
         )
@@ -263,22 +274,21 @@ export default function ScannerScreen() {
                 enableTorch={torchEnabled}
             />
 
-            <View style={styles.backdropShade} />
-
             <View style={styles.overlay}>
+                {/* Top Bar */}
                 <View style={styles.topBar}>
-                    <Pressable style={styles.iconBtn} onPress={() => navigation.navigate("Dashboard")}>
-                        <Text style={styles.iconBtnText}>‹</Text>
+                    <Pressable style={styles.glassIconBtn} onPress={() => navigation.navigate("Dashboard")}>
+                        <Text style={styles.glassIconBtnText}>‹</Text>
                     </Pressable>
                     <Pressable
-                        style={styles.iconBtn}
+                        style={styles.glassIconBtn}
                         onPress={() => setTorchEnabled((prev) => !prev)}
                     >
-                        <Text style={styles.iconBtnText}>{torchEnabled ? "☼" : "⚡"}</Text>
+                        <Text style={styles.glassIconBtnText}>{torchEnabled ? "☼" : "⚡"}</Text>
                     </Pressable>
                 </View>
 
-                <View style={styles.midSpacer} />
+                <View style={{ flex: 1 }} />
 
                 {lastSyncedOfflineCount > 0 ? (
                     <View style={styles.syncBanner}>
@@ -286,98 +296,159 @@ export default function ScannerScreen() {
                     </View>
                 ) : null}
 
+                {/* Scan Frame */}
                 <View style={styles.frameWrap}>
-                    <View style={styles.scanFrame} />
+                    <View style={[styles.scanFrame, { borderColor: modeColor, shadowColor: modeColor }]}>
+                        {/* Corner accents */}
+                        <View style={[styles.cornerTL_H, { backgroundColor: modeColor }]} />
+                        <View style={[styles.cornerTL_V, { backgroundColor: modeColor }]} />
+                        <View style={[styles.cornerTR_H, { backgroundColor: modeColor }]} />
+                        <View style={[styles.cornerTR_V, { backgroundColor: modeColor }]} />
+                        <View style={[styles.cornerBL_H, { backgroundColor: modeColor }]} />
+                        <View style={[styles.cornerBL_V, { backgroundColor: modeColor }]} />
+                        <View style={[styles.cornerBR_H, { backgroundColor: modeColor }]} />
+                        <View style={[styles.cornerBR_V, { backgroundColor: modeColor }]} />
+                    </View>
                 </View>
 
+                <View style={{ flex: 1 }} />
+
+                {/* Bottom Panel */}
                 <View style={styles.bottomPanel}>
+                    {/* GPS Status */}
                     <View style={styles.gpsRow}>
-                        <Text style={styles.gpsIcon}>{lastLocationRef.current ? "◎" : "◌"}</Text>
+                        <View
+                            style={[
+                                styles.gpsDot,
+                                {
+                                    backgroundColor: lastLocationRef.current
+                                        ? APP_THEME.success
+                                        : APP_THEME.danger,
+                                    shadowColor: lastLocationRef.current
+                                        ? APP_THEME.success
+                                        : APP_THEME.danger,
+                                },
+                            ]}
+                        />
                         <Text style={styles.gpsText}>{gpsStatusText}</Text>
                     </View>
 
-                    <View style={styles.modeCard}>
+                    {/* Mode Card */}
+                    <View style={[styles.modeCard, { borderColor: modeColor + "26" }]}>
                         <View>
                             <Text style={styles.modeLabel}>Scanning Mode</Text>
                             <View style={styles.modeValueRow}>
-                                <Text style={[styles.modeValue, mode === "ENTRY" ? styles.modeValueEntry : styles.modeValueExit]}>{mode}</Text>
+                                <Text style={[styles.modeValue, { color: modeColor }]}>{mode}</Text>
                                 <View style={styles.autoChip}>
                                     <Text style={styles.autoChipText}>AUTO</Text>
                                 </View>
                             </View>
                         </View>
                         <View style={styles.lockedChip}>
+                            <Text style={styles.lockedChipIcon}>🔒</Text>
                             <Text style={styles.lockedChipText}>AUTO-LOCKED</Text>
                         </View>
                     </View>
                 </View>
             </View>
 
+            {/* Processing Overlay */}
             {isProcessing ? (
                 <View style={styles.processingOverlay}>
-                    <ActivityIndicator color={APP_THEME.accent} size="large" />
+                    <LinearGradient
+                        colors={[APP_THEME.accent, APP_THEME.accentPurple]}
+                        style={styles.processingIcon}
+                    >
+                        <ActivityIndicator color="#fff" size="large" />
+                    </LinearGradient>
                     <Text style={styles.processingText}>Validating access...</Text>
                 </View>
             ) : null}
 
+            {/* Permission Prompt */}
             {showPermissionPrompt ? (
                 <View style={styles.permissionOverlay}>
                     <View style={styles.permissionCard}>
                         <Text style={styles.permissionCardTitle}>Permissions Required</Text>
-                        <Text style={styles.permissionCardDesc}>Location permission is required for scan.</Text>
+                        <Text style={styles.permissionCardDesc}>
+                            Location permission is required for scan. If iOS is not showing the prompt, open Settings and allow Camera + Location for this app.
+                        </Text>
                         <Pressable
-                            style={styles.permissionPrimary}
                             onPress={async () => {
                                 setShowPermissionPrompt(false)
                                 await Location.requestForegroundPermissionsAsync()
                             }}
                         >
-                            <Text style={styles.permissionPrimaryText}>Retry Permission</Text>
+                            <LinearGradient
+                                colors={[APP_THEME.accent, APP_THEME.accentPurple]}
+                                style={styles.permissionPrimary}
+                            >
+                                <Text style={styles.permissionPrimaryText}>Retry Permission</Text>
+                            </LinearGradient>
                         </Pressable>
                     </View>
                 </View>
             ) : null}
 
+            {/* Result Modal */}
             <Modal visible={isResultModalVisible} animationType="fade" transparent onRequestClose={closeResultModal}>
-                <View style={[styles.modalBackdrop, { backgroundColor: resultTone }]}>
-                    <View style={styles.modalSurface}>
-                        <View style={styles.modalTop}>
-                            <View style={styles.modalIconShell}>
-                                <Text style={styles.modalIconText}>{resultIcon}</Text>
+                <View style={styles.resultModalBg}>
+                    <LinearGradient
+                        colors={[resultTone, resultTone + "CC", APP_THEME.bg]}
+                        locations={[0, 0.4, 1]}
+                        style={styles.resultGradient}
+                    >
+                        <View style={styles.resultContent}>
+                            {/* Icon */}
+                            <View style={styles.resultIconShell}>
+                                <Text style={styles.resultIconText}>{resultIcon}</Text>
                             </View>
-                            <Text style={styles.modalTitle}>{resultTitle}</Text>
-                            <Text style={styles.modalResultCode}>{lastResult?.result ?? "-"}</Text>
+
+                            <Text style={styles.resultTitle}>{resultTitle}</Text>
+                            <Text style={styles.resultCode}>{lastResult?.result ?? "-"}</Text>
+
                             {dayBadgeText ? (
                                 <View style={styles.dayBadge}>
                                     <Text style={styles.dayBadgeText}>{dayBadgeText}</Text>
                                 </View>
                             ) : null}
-                            <Text style={styles.modalMessage}>{lastResult?.message ?? "No message"}</Text>
+
+                            <Text style={styles.resultMessage}>{lastResult?.message ?? "No message"}</Text>
+
+                            {lastResult?.student ? (
+                                <View style={styles.studentCard}>
+                                    {lastResult.student.photoUrl ? (
+                                        <Image
+                                            source={{ uri: lastResult.student.photoUrl }}
+                                            style={styles.studentPhoto}
+                                        />
+                                    ) : (
+                                        <View style={styles.studentPhotoFallback}>
+                                            <Text style={styles.studentPhotoFallbackText}>ID</Text>
+                                        </View>
+                                    )}
+                                    <Text style={styles.studentName}>{lastResult.student.name}</Text>
+                                    <Text style={styles.studentEnrollment}>{lastResult.student.enrollmentNo}</Text>
+                                </View>
+                            ) : null}
+
+                            <View style={{ flex: 1 }} />
+
+                            <Pressable style={styles.resultActionBtn} onPress={closeResultModal}>
+                                <Text style={[styles.resultActionText, { color: resultTone }]}>
+                                    DONE / NEXT SCAN
+                                </Text>
+                            </Pressable>
                         </View>
-
-                        {lastResult?.student ? (
-                            <View style={styles.studentCard}>
-                                {lastResult.student.photoUrl ? (
-                                    <Image source={{ uri: lastResult.student.photoUrl }} style={styles.studentPhoto} />
-                                ) : (
-                                    <View style={styles.studentPhotoFallback}>
-                                        <Text style={styles.studentPhotoFallbackText}>ID</Text>
-                                    </View>
-                                )}
-                                <Text style={styles.studentName}>{lastResult.student.name}</Text>
-                                <Text style={styles.studentEnrollment}>{lastResult.student.enrollmentNo}</Text>
-                            </View>
-                        ) : null}
-
-                        <Pressable style={styles.modalActionBtn} onPress={closeResultModal}>
-                            <Text style={[styles.modalActionBtnText, { color: resultTone }]}>Done</Text>
-                        </Pressable>
-                    </View>
+                    </LinearGradient>
                 </View>
             </Modal>
         </View>
     )
 }
+
+const CORNER_SIZE = 20
+const CORNER_THICK = 3
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: "#000" },
@@ -392,130 +463,157 @@ const styles = StyleSheet.create({
     permissionTitle: { color: APP_THEME.text, fontSize: 18, fontWeight: "800", textAlign: "center" },
     permissionButton: {
         marginTop: 10,
-        borderRadius: 12,
-        minHeight: 44,
-        minWidth: 140,
+        borderRadius: 16,
+        height: 48,
+        paddingHorizontal: 24,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: APP_THEME.accent,
     },
-    permissionButtonText: { color: APP_THEME.bg, fontWeight: "800" },
-    backdropShade: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0,0,0,0.2)",
-    },
+    permissionButtonText: { color: "#fff", fontWeight: "800" },
+
     overlay: {
         ...StyleSheet.absoluteFillObject,
         justifyContent: "space-between",
-        paddingTop: 18,
     },
     topBar: {
         paddingHorizontal: 16,
+        paddingTop: 56,
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
     },
-    iconBtn: {
+    glassIconBtn: {
         width: 46,
         height: 46,
-        borderRadius: 12,
+        borderRadius: 14,
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.25)",
-        backgroundColor: "rgba(255,255,255,0.2)",
+        borderColor: "rgba(255,255,255,0.15)",
+        backgroundColor: "rgba(255,255,255,0.1)",
         alignItems: "center",
         justifyContent: "center",
     },
-    iconBtnText: { color: "#fff", fontSize: 22, fontWeight: "900" },
-    midSpacer: { height: 24 },
+    glassIconBtnText: { color: "#fff", fontSize: 22, fontWeight: "900" },
+
     syncBanner: {
         marginHorizontal: 24,
         marginBottom: 8,
-        borderRadius: 10,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: "rgba(74,222,128,0.45)",
-        backgroundColor: "rgba(74,222,128,0.18)",
+        borderColor: APP_THEME.success + "4D",
+        backgroundColor: APP_THEME.success + "26",
         paddingHorizontal: 12,
         paddingVertical: 8,
     },
-    syncBannerText: { color: "#fff", textAlign: "center", fontSize: 12, fontWeight: "700" },
+    syncBannerText: { color: "#fff", textAlign: "center", fontSize: 12, fontWeight: "600" },
+
     frameWrap: {
-        flex: 1,
         alignItems: "center",
         justifyContent: "center",
     },
     scanFrame: {
         width: 250,
         height: 250,
-        borderRadius: 24,
-        borderWidth: 4,
-        borderColor: "#4ade80",
-        shadowColor: "#4ade80",
-        shadowOpacity: 0.35,
-        shadowRadius: 20,
+        borderRadius: 28,
+        borderWidth: 3,
+        shadowOpacity: 0.3,
+        shadowRadius: 30,
         shadowOffset: { width: 0, height: 0 },
         elevation: 8,
     },
+
+    // Corner accents
+    cornerTL_H: { position: "absolute", top: 0, left: 0, width: CORNER_SIZE, height: CORNER_THICK, borderTopLeftRadius: 28 },
+    cornerTL_V: { position: "absolute", top: 0, left: 0, width: CORNER_THICK, height: CORNER_SIZE, borderTopLeftRadius: 28 },
+    cornerTR_H: { position: "absolute", top: 0, right: 0, width: CORNER_SIZE, height: CORNER_THICK, borderTopRightRadius: 28 },
+    cornerTR_V: { position: "absolute", top: 0, right: 0, width: CORNER_THICK, height: CORNER_SIZE, borderTopRightRadius: 28 },
+    cornerBL_H: { position: "absolute", bottom: 0, left: 0, width: CORNER_SIZE, height: CORNER_THICK, borderBottomLeftRadius: 28 },
+    cornerBL_V: { position: "absolute", bottom: 0, left: 0, width: CORNER_THICK, height: CORNER_SIZE, borderBottomLeftRadius: 28 },
+    cornerBR_H: { position: "absolute", bottom: 0, right: 0, width: CORNER_SIZE, height: CORNER_THICK, borderBottomRightRadius: 28 },
+    cornerBR_V: { position: "absolute", bottom: 0, right: 0, width: CORNER_THICK, height: CORNER_SIZE, borderBottomRightRadius: 28 },
+
     bottomPanel: {
         paddingHorizontal: 24,
-        paddingTop: 16,
-        paddingBottom: 22,
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        borderTopWidth: 2,
-        borderTopColor: "#333333",
-        backgroundColor: "rgba(18,18,18,0.95)",
-        gap: 18,
+        paddingTop: 24,
+        paddingBottom: 32,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        borderTopWidth: 1,
+        borderTopColor: "rgba(255,255,255,0.08)",
+        backgroundColor: APP_THEME.bg + "D9",
+        gap: 20,
     },
-    gpsRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    gpsIcon: { color: "#4ade80", fontSize: 18, fontWeight: "900" },
-    gpsText: { color: "rgba(255,255,255,0.75)", fontSize: 14, fontWeight: "600" },
+    gpsRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    gpsDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 999,
+        shadowOpacity: 0.5,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 0 },
+    },
+    gpsText: { color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: "500" },
+
     modeCard: {
-        borderRadius: 16,
-        borderWidth: 2,
-        borderColor: "#333333",
-        backgroundColor: "#1E1E1E",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        borderRadius: 18,
+        borderWidth: 1,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        paddingHorizontal: 18,
+        paddingVertical: 14,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 12,
     },
-    modeLabel: { color: "rgba(255,255,255,0.55)", fontSize: 12 },
+    modeLabel: { color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: "500" },
     modeValueRow: { marginTop: 4, flexDirection: "row", alignItems: "center", gap: 8 },
-    modeValue: { fontSize: 22, fontWeight: "900", letterSpacing: 0.5 },
-    modeValueEntry: { color: "#4ade80" },
-    modeValueExit: { color: "#facc15" },
+    modeValue: { fontSize: 20, fontWeight: "800" },
     autoChip: {
-        borderRadius: 4,
-        backgroundColor: "rgba(255,255,255,0.1)",
+        borderRadius: 6,
+        backgroundColor: "rgba(255,255,255,0.06)",
         paddingHorizontal: 6,
         paddingVertical: 2,
     },
-    autoChipText: { color: "rgba(255,255,255,0.6)", fontSize: 10, fontWeight: "800" },
+    autoChipText: { color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "700" },
     lockedChip: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
         borderRadius: 12,
-        backgroundColor: "rgba(255,255,255,0.08)",
+        backgroundColor: "rgba(255,255,255,0.06)",
         paddingHorizontal: 12,
-        paddingVertical: 10,
+        paddingVertical: 8,
     },
-    lockedChipText: { color: "rgba(255,255,255,0.7)", fontWeight: "800", fontSize: 11 },
+    lockedChipIcon: { fontSize: 12 },
+    lockedChipText: { color: "rgba(255,255,255,0.5)", fontWeight: "700", fontSize: 10 },
+
     processingOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(18,18,18,0.8)",
+        backgroundColor: APP_THEME.bg + "D9",
         alignItems: "center",
         justifyContent: "center",
-        gap: 18,
+        gap: 28,
+    },
+    processingIcon: {
+        width: 80,
+        height: 80,
+        borderRadius: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: APP_THEME.accent,
+        shadowOpacity: 0.4,
+        shadowRadius: 30,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 12,
     },
     processingText: {
         color: "#fff",
         fontSize: 18,
         fontWeight: "700",
-        letterSpacing: 1.5,
+        letterSpacing: 1,
     },
+
     permissionOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(7,18,38,0.8)",
+        backgroundColor: APP_THEME.bg + "CC",
         alignItems: "center",
         justifyContent: "center",
         padding: 20,
@@ -523,66 +621,59 @@ const styles = StyleSheet.create({
     permissionCard: {
         width: "100%",
         maxWidth: 380,
-        borderRadius: 16,
-        backgroundColor: APP_THEME.card,
+        borderRadius: 24,
+        backgroundColor: APP_THEME.surfaceDark,
         borderWidth: 1,
-        borderColor: APP_THEME.border,
-        padding: 18,
-        gap: 10,
+        borderColor: APP_THEME.glassBorder,
+        padding: 20,
+        gap: 12,
     },
-    permissionCardTitle: { color: APP_THEME.text, fontSize: 17, fontWeight: "800" },
-    permissionCardDesc: { color: APP_THEME.muted, fontSize: 13, lineHeight: 20 },
+    permissionCardTitle: { color: APP_THEME.text, fontSize: 17, fontWeight: "700" },
+    permissionCardDesc: { color: "rgba(255,255,255,0.7)", fontSize: 13, lineHeight: 20 },
     permissionPrimary: {
         marginTop: 8,
-        borderRadius: 10,
-        backgroundColor: APP_THEME.accent,
-        minHeight: 44,
+        borderRadius: 14,
+        height: 48,
         alignItems: "center",
         justifyContent: "center",
     },
-    permissionPrimaryText: { color: APP_THEME.bg, fontWeight: "800" },
-    modalBackdrop: {
+    permissionPrimaryText: { color: "#fff", fontWeight: "800" },
+
+    // ── Result Modal ──
+    resultModalBg: { flex: 1 },
+    resultGradient: { flex: 1 },
+    resultContent: {
         flex: 1,
-        padding: 22,
-    },
-    modalSurface: {
-        flex: 1,
-        width: "100%",
         alignItems: "center",
-        justifyContent: "space-between",
-        paddingVertical: 24,
+        paddingTop: 80,
+        paddingBottom: 32,
+        paddingHorizontal: 24,
     },
-    modalTop: {
-        width: "100%",
-        alignItems: "center",
-    },
-    modalIconShell: {
+    resultIconShell: {
         width: 110,
         height: 110,
-        borderRadius: 28,
-        backgroundColor: "#10203a",
-        borderWidth: 4,
-        borderColor: "#071226",
+        borderRadius: 32,
+        backgroundColor: APP_THEME.bg,
         alignItems: "center",
         justifyContent: "center",
-        shadowColor: "#071226",
-        shadowOpacity: 0.5,
-        shadowOffset: { width: 8, height: 8 },
-        shadowRadius: 0,
+        shadowColor: "#000",
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
         elevation: 12,
     },
-    modalIconText: { color: "#fff", fontSize: 44, fontWeight: "900", lineHeight: 48 },
-    modalTitle: {
-        color: "#071226",
-        fontSize: 36,
-        fontWeight: "900",
-        marginTop: 22,
-        letterSpacing: 0.6,
+    resultIconText: { color: "#fff", fontSize: 48, fontWeight: "900" },
+    resultTitle: {
+        color: APP_THEME.bg,
+        fontSize: 30,
+        fontWeight: "800",
+        marginTop: 28,
+        letterSpacing: -0.5,
         textAlign: "center",
     },
-    modalResultCode: {
-        color: "#071226",
-        fontSize: 28,
+    resultCode: {
+        color: APP_THEME.bg,
+        fontSize: 22,
         fontWeight: "800",
         marginTop: 10,
         textAlign: "center",
@@ -590,73 +681,70 @@ const styles = StyleSheet.create({
     dayBadge: {
         marginTop: 10,
         borderRadius: 999,
-        backgroundColor: "#071226",
+        backgroundColor: APP_THEME.bg,
         paddingHorizontal: 14,
         paddingVertical: 6,
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.35)",
     },
-    dayBadgeText: {
-        color: "#fff",
-        fontSize: 13,
-        fontWeight: "800",
-        letterSpacing: 0.3,
-    },
-    modalMessage: {
-        color: "#071226",
-        fontSize: 19,
-        fontWeight: "700",
+    dayBadgeText: { color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 0.3 },
+    resultMessage: {
+        color: "rgba(10,14,33,0.87)",
+        fontSize: 16,
+        fontWeight: "600",
         textAlign: "center",
         marginTop: 10,
         maxWidth: 360,
     },
+
     studentCard: {
         width: "100%",
         maxWidth: 380,
-        borderRadius: 22,
-        backgroundColor: "#10203a",
-        borderWidth: 4,
-        borderColor: "#071226",
+        borderRadius: 24,
+        backgroundColor: APP_THEME.bg + "D9",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.1)",
         alignItems: "center",
-        paddingVertical: 18,
-        paddingHorizontal: 14,
-        shadowColor: "#071226",
-        shadowOpacity: 0.45,
-        shadowOffset: { width: 8, height: 8 },
-        shadowRadius: 0,
+        paddingVertical: 24,
+        paddingHorizontal: 20,
+        marginTop: 24,
+        shadowColor: "#000",
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 8 },
         elevation: 10,
     },
     studentPhoto: {
-        width: 84,
-        height: 84,
-        borderRadius: 18,
+        width: 80,
+        height: 80,
+        borderRadius: 22,
         borderWidth: 2,
         borderColor: "rgba(255,255,255,0.24)",
     },
     studentPhotoFallback: {
-        width: 84,
-        height: 84,
-        borderRadius: 18,
+        width: 80,
+        height: 80,
+        borderRadius: 22,
         borderWidth: 2,
         borderColor: "rgba(255,255,255,0.24)",
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "rgba(255,255,255,0.1)",
     },
-    studentPhotoFallbackText: { color: "#d9e5ff", fontSize: 20, fontWeight: "800" },
-    studentName: { color: "#fff", fontSize: 24, fontWeight: "800", marginTop: 12, textAlign: "center" },
-    studentEnrollment: { color: "#d9e5ff", fontSize: 15, fontWeight: "600", marginTop: 4 },
-    modalActionBtn: {
+    studentPhotoFallbackText: { color: "rgba(255,255,255,0.7)", fontSize: 20, fontWeight: "800" },
+    studentName: { color: "#fff", fontSize: 22, fontWeight: "700", marginTop: 16, textAlign: "center" },
+    studentEnrollment: { color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: "500", marginTop: 4 },
+
+    resultActionBtn: {
         width: "100%",
         maxWidth: 380,
-        minHeight: 64,
+        height: 56,
         borderRadius: 16,
-        backgroundColor: "#071226",
+        backgroundColor: APP_THEME.bg,
         alignItems: "center",
         justifyContent: "center",
-        paddingHorizontal: 18,
-        borderWidth: 2,
-        borderColor: "rgba(255,255,255,0.2)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.1)",
     },
-    modalActionBtnText: { fontSize: 20, fontWeight: "900", letterSpacing: 0.4 },
+    resultActionText: { fontSize: 16, fontWeight: "800", letterSpacing: 1 },
 })

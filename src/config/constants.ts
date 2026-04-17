@@ -10,12 +10,32 @@ export const STORAGE_KEYS = {
 } as const
 
 export const APP_THEME = {
-    bg: "#071226",
-    card: "#10203a",
-    border: "#20385f",
-    text: "#e7edf7",
-    muted: "#9bb0d1",
-    accent: "#16d6a3",
-    warning: "#f7c948",
-    danger: "#ef476f",
+    // ─── Core Palette ───────────────────────────────────────────
+    bg: "#0A0E21",
+    bgSecondary: "#111836",
+    surfaceDark: "#151B3A",
+    card: "#151B3A",
+
+    // ─── Accents ────────────────────────────────────────────────
+    accent: "#00D4FF",        // Cyan
+    accentPurple: "#7B61FF",  // Purple
+    accentPink: "#FF6B9D",    // Pink
+
+    // ─── Glass ──────────────────────────────────────────────────
+    glassBg: "rgba(255,255,255,0.06)",
+    glassBorder: "rgba(255,255,255,0.12)",
+    glassHighlight: "rgba(255,255,255,0.08)",
+
+    // ─── Status ─────────────────────────────────────────────────
+    success: "#00E676",
+    warning: "#FFB74D",
+    danger: "#FF5252",
+
+    // ─── Text ───────────────────────────────────────────────────
+    text: "#FFFFFF",
+    textSecondary: "rgba(255,255,255,0.7)",
+    muted: "rgba(255,255,255,0.45)",
+
+    // ─── Legacy/Compat ──────────────────────────────────────────
+    border: "rgba(255,255,255,0.12)",
 } as const
