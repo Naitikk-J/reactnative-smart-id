@@ -6,6 +6,17 @@ import { APP_THEME } from "../config/constants"
 import { accessScan, confirmEventMeal } from "../services/scanService"
 import { ScanResult } from "../types/ScanResult"
 
+const SCAN_DEBOUNCE_MS = 900
+const LOCATION_CACHE_MAX_AGE_MS = 20_000
+const LOCATION_TIMEOUT_MS = 3_500
+
+type CachedLocation = {
+    latitude: number
+    longitude: number
+    accuracy: number
+    timestamp: number
+}
+
 export default function ScannerScreen() {
     const [cameraPermission, requestCameraPermission] = useCameraPermissions()
     const [mode, setMode] = useState<"ENTRY" | "EXIT">("ENTRY")
@@ -13,6 +24,79 @@ export default function ScannerScreen() {
     const [lastResult, setLastResult] = useState<ScanResult | null>(null)
     const [isResultModalVisible, setIsResultModalVisible] = useState(false)
     const lastScanAtRef = useRef<number>(0)
+    const locationPermissionGrantedRef = useRef<boolean | null>(null)
+    const lastLocationRef = useRef<CachedLocation | null>(null)
+
+    const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+        return await new Promise<T>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error("LOCATION_TIMEOUT")), timeoutMs)
+            promise
+                .then((value) => {
+                    clearTimeout(timeout)
+                    resolve(value)
+                })
+                .catch((error) => {
+                    clearTimeout(timeout)
+                    reject(error)
+                })
+        })
+    }
+
+    const cacheLocation = (coords: Location.LocationObjectCoords, timestamp?: number): CachedLocation => {
+        const next = {
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            accuracy: coords.accuracy ?? 0,
+            timestamp: timestamp ?? Date.now(),
+        }
+        lastLocationRef.current = next
+        return next
+    }
+
+    const resolveScanLocation = async (): Promise<CachedLocation> => {
+        if (locationPermissionGrantedRef.current !== true) {
+            let permission = await Location.getForegroundPermissionsAsync()
+            if (permission.status !== "granted") {
+                permission = await Location.requestForegroundPermissionsAsync()
+            }
+
+            const granted = permission.status === "granted"
+            locationPermissionGrantedRef.current = granted
+
+            if (!granted) {
+                throw new Error("LOCATION_PERMISSION_DENIED")
+            }
+        }
+
+        const now = Date.now()
+        const cached = lastLocationRef.current
+        if (cached && now - cached.timestamp <= LOCATION_CACHE_MAX_AGE_MS) {
+            return cached
+        }
+
+        const lastKnown = await Location.getLastKnownPositionAsync()
+        if (lastKnown && now - lastKnown.timestamp <= LOCATION_CACHE_MAX_AGE_MS) {
+            return cacheLocation(lastKnown.coords, lastKnown.timestamp)
+        }
+
+        try {
+            const current = await withTimeout(
+                Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+                LOCATION_TIMEOUT_MS,
+            )
+            return cacheLocation(current.coords, current.timestamp)
+        } catch {
+            if (lastKnown) {
+                return cacheLocation(lastKnown.coords, lastKnown.timestamp)
+            }
+
+            if (lastLocationRef.current) {
+                return lastLocationRef.current
+            }
+
+            throw new Error("LOCATION_UNAVAILABLE")
+        }
+    }
 
     const canScan = useMemo(
         () => cameraPermission?.granted === true && !isProcessing && !isResultModalVisible,
@@ -42,25 +126,18 @@ export default function ScannerScreen() {
 
     const handleScanned = async (value: string) => {
         const now = Date.now()
-        if (!value || now - lastScanAtRef.current < 1500 || !canScan) return
+        if (!value || now - lastScanAtRef.current < SCAN_DEBOUNCE_MS || !canScan) return
         lastScanAtRef.current = now
         setIsProcessing(true)
 
         try {
-            const locationPermission = await Location.requestForegroundPermissionsAsync()
-            if (locationPermission.status !== "granted") {
-                Alert.alert("Permission", "Location permission is required for scan")
-                setIsProcessing(false)
-                return
-            }
-
-            const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
+            const position = await resolveScanLocation()
             const payload = {
                 qrToken: value,
                 eventType: mode,
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                accuracy: position.coords.accuracy ?? 0,
+                latitude: position.latitude,
+                longitude: position.longitude,
+                accuracy: position.accuracy,
                 timestamp: new Date().toISOString(),
                 isMockLocation: false,
             }
@@ -99,6 +176,11 @@ export default function ScannerScreen() {
             setLastResult(result)
             setIsResultModalVisible(true)
         } catch (err) {
+            if (err instanceof Error && err.message === "LOCATION_PERMISSION_DENIED") {
+                Alert.alert("Permission", "Location permission is required for scan")
+                return
+            }
+
             const fallbackResult = {
                 success: false,
                 result: "ERROR",
