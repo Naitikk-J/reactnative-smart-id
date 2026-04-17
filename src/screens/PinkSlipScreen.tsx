@@ -2,16 +2,18 @@ import React, { useCallback, useEffect, useMemo, useState } from "react"
 import {
     ActivityIndicator,
     Alert,
+    Modal,
+    Pressable,
     RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     View,
-    Pressable,
 } from "react-native"
 import { APP_THEME } from "../config/constants"
-import { createPinkSlip, getMyPinkSlips } from "../services/pinkSlipService"
+import { useAuth } from "../context/AuthContext"
+import { createPinkSlip, getMyPinkSlips, getPendingPinkSlips, updatePinkSlipStatus } from "../services/pinkSlipService"
 
 type PinkSlipItem = {
     id?: string
@@ -22,6 +24,11 @@ type PinkSlipItem = {
     updatedAt?: string
     remarks?: string
     status?: "APPROVED" | "PENDING" | "REJECTED" | string
+    student?: {
+        fullName?: string
+        enrollmentNo?: string
+        department?: string
+    }
 }
 
 const APPROVED_PINK = "#FF5FA2"
@@ -77,31 +84,63 @@ function statusColor(status: string): string {
     return APP_THEME.warning
 }
 
+function isAdminRole(role?: string): boolean {
+    const normalized = String(role ?? "").toUpperCase()
+    return normalized === "SUPER_ADMIN" || normalized === "HOD" || normalized === "WARDEN"
+}
+
 export default function PinkSlipScreen() {
-    const [items, setItems] = useState<PinkSlipItem[]>([])
+    const { user } = useAuth()
+    const adminMode = useMemo(() => isAdminRole(user?.role), [user?.role])
+
+    const [studentItems, setStudentItems] = useState<PinkSlipItem[]>([])
+    const [adminItems, setAdminItems] = useState<PinkSlipItem[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
+
     const [reason, setReason] = useState("")
     const [fromDate, setFromDate] = useState("")
     const [toDate, setToDate] = useState("")
     const [submitLoading, setSubmitLoading] = useState(false)
 
-    const loadItems = useCallback(async () => {
+    const [actionModalVisible, setActionModalVisible] = useState(false)
+    const [actionTarget, setActionTarget] = useState<PinkSlipItem | null>(null)
+    const [actionStatus, setActionStatus] = useState<"APPROVED" | "REJECTED">("APPROVED")
+    const [adminRemark, setAdminRemark] = useState("")
+    const [actionLoading, setActionLoading] = useState(false)
+
+    const loadStudentItems = useCallback(async () => {
         const slips = await getMyPinkSlips()
         const normalized = slips
             .filter((item) => typeof item === "object" && item !== null)
             .map((item) => ({ ...(item as PinkSlipItem) }))
-        setItems(normalized)
+        setStudentItems(normalized)
     }, [])
+
+    const loadAdminItems = useCallback(async () => {
+        const slips = await getPendingPinkSlips()
+        const normalized = slips
+            .filter((item) => typeof item === "object" && item !== null)
+            .map((item) => ({ ...(item as PinkSlipItem) }))
+        setAdminItems(normalized)
+    }, [])
+
+    const loadItems = useCallback(async () => {
+        if (adminMode) {
+            await loadAdminItems()
+        } else {
+            await loadStudentItems()
+        }
+    }, [adminMode, loadAdminItems, loadStudentItems])
 
     useEffect(() => {
         loadItems().finally(() => setLoading(false))
     }, [loadItems])
 
-    const approvedCount = useMemo(() => items.filter((s) => s.status === "APPROVED").length, [items])
-    const pendingCount = useMemo(() => items.filter((s) => s.status === "PENDING").length, [items])
-    const rejectedCount = useMemo(() => items.filter((s) => s.status === "REJECTED").length, [items])
-    const latestApprovedSlip = useMemo(() => items.find((s) => s.status === "APPROVED") ?? null, [items])
+    const approvedCount = useMemo(() => studentItems.filter((s) => s.status === "APPROVED").length, [studentItems])
+    const pendingCount = useMemo(() => studentItems.filter((s) => s.status === "PENDING").length, [studentItems])
+    const rejectedCount = useMemo(() => studentItems.filter((s) => s.status === "REJECTED").length, [studentItems])
+    const latestApprovedSlip = useMemo(() => studentItems.find((s) => s.status === "APPROVED") ?? null, [studentItems])
 
     const onRefresh = async () => {
         setRefreshing(true)
@@ -136,13 +175,168 @@ export default function PinkSlipScreen() {
         setFromDate("")
         setToDate("")
         Alert.alert("Success", "Pink Slip Requested Successfully!")
-        await loadItems()
+        await loadStudentItems()
+    }
+
+    const openAdminActionModal = (item: PinkSlipItem, status: "APPROVED" | "REJECTED") => {
+        setActionTarget(item)
+        setActionStatus(status)
+        setAdminRemark("")
+        setActionModalVisible(true)
+    }
+
+    const closeAdminActionModal = () => {
+        if (actionLoading) return
+        setActionModalVisible(false)
+        setActionTarget(null)
+        setAdminRemark("")
+    }
+
+    const onConfirmAdminAction = async () => {
+        if (!actionTarget?.id) {
+            closeAdminActionModal()
+            return
+        }
+
+        setActionLoading(true)
+        const success = await updatePinkSlipStatus(
+            actionTarget.id,
+            actionStatus,
+            adminRemark.trim() ? adminRemark.trim() : undefined,
+        )
+        setActionLoading(false)
+
+        if (!success) {
+            Alert.alert("Failed", "Unable to update pink slip status")
+            return
+        }
+
+        closeAdminActionModal()
+        Alert.alert("Updated", `Request ${actionStatus.toLowerCase()} successfully`)
+        await loadAdminItems()
     }
 
     if (loading) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator color="#4ade80" size="large" />
+            </View>
+        )
+    }
+
+    if (adminMode) {
+        return (
+            <View style={styles.root}>
+                <ScrollView
+                    contentContainerStyle={styles.adminScrollContent}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4ade80" />}
+                >
+                    <Text style={styles.adminTitle}>Pink Slip Management</Text>
+
+                    {adminItems.length === 0 ? (
+                        <View style={styles.adminEmptyWrap}>
+                            <Text style={styles.adminEmptyIcon}>◉</Text>
+                            <Text style={styles.adminEmptyTitle}>No Pending Requests</Text>
+                            <Text style={styles.adminEmptySub}>All caught up! New requests will appear here.</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.adminList}>
+                            {adminItems.map((item, index) => {
+                                const studentName = String(item.student?.fullName ?? "Unknown Student")
+                                const initial = studentName.charAt(0).toUpperCase() || "?"
+                                const enrollment = String(item.student?.enrollmentNo ?? "N/A")
+                                const department = String(item.student?.department ?? "")
+                                const reasonText = hideBackendIds(item.reason?.trim()) || "No reason provided"
+                                const fromDate = formatDateFull(item.fromDate)
+                                const toDate = formatDateFull(item.toDate)
+
+                                return (
+                                    <View key={String(item.id ?? index)} style={styles.adminCard}>
+                                        <View style={styles.adminCardHeader}>
+                                            <View style={styles.adminAvatar}>
+                                                <Text style={styles.adminAvatarText}>{initial}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.adminStudentName}>{studentName}</Text>
+                                                <Text style={styles.adminStudentMeta}>{enrollment}{department ? ` • ${department}` : ""}</Text>
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.adminDivider} />
+
+                                        <View style={styles.adminReasonWrap}>
+                                            <Text style={styles.adminReasonLabel}>Reason:</Text>
+                                            <Text style={styles.adminReasonValue}>{reasonText}</Text>
+                                        </View>
+
+                                        <View style={styles.adminDateRow}>
+                                            <View style={styles.adminDateChip}>
+                                                <Text style={styles.adminDateLabel}>From</Text>
+                                                <Text style={styles.adminDateValue}>{fromDate}</Text>
+                                            </View>
+                                            <View style={styles.adminDateChip}>
+                                                <Text style={styles.adminDateLabel}>To</Text>
+                                                <Text style={styles.adminDateValue}>{toDate}</Text>
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.adminActionRow}>
+                                            <Pressable
+                                                style={[styles.adminActionBtn, styles.adminDenyBtn]}
+                                                onPress={() => openAdminActionModal(item, "REJECTED")}
+                                            >
+                                                <Text style={styles.adminDenyText}>DENY</Text>
+                                            </Pressable>
+                                            <Pressable
+                                                style={[styles.adminActionBtn, styles.adminApproveBtn]}
+                                                onPress={() => openAdminActionModal(item, "APPROVED")}
+                                            >
+                                                <Text style={styles.adminApproveText}>APPROVE</Text>
+                                            </Pressable>
+                                        </View>
+                                    </View>
+                                )
+                            })}
+                        </View>
+                    )}
+                </ScrollView>
+
+                <Modal visible={actionModalVisible} transparent animationType="fade" onRequestClose={closeAdminActionModal}>
+                    <View style={styles.modalBackdrop}>
+                        <View style={styles.modalCard}>
+                            <Text style={styles.modalTitle}>{actionStatus === "APPROVED" ? "Approve Request?" : "Deny Request?"}</Text>
+                            <TextInput
+                                style={styles.modalInput}
+                                value={adminRemark}
+                                onChangeText={setAdminRemark}
+                                placeholder="Add remarks (optional)"
+                                placeholderTextColor="rgba(255,255,255,0.35)"
+                                multiline
+                            />
+                            <View style={styles.modalActions}>
+                                <Pressable style={styles.modalCancelBtn} onPress={closeAdminActionModal}>
+                                    <Text style={styles.modalCancelText}>Cancel</Text>
+                                </Pressable>
+                                <Pressable
+                                    style={[
+                                        styles.modalConfirmBtn,
+                                        actionStatus === "APPROVED" ? styles.modalConfirmApprove : styles.modalConfirmDeny,
+                                    ]}
+                                    onPress={onConfirmAdminAction}
+                                    disabled={actionLoading}
+                                >
+                                    {actionLoading ? (
+                                        <ActivityIndicator color="#fff" size="small" />
+                                    ) : (
+                                        <Text style={styles.modalConfirmText}>
+                                            {actionStatus === "APPROVED" ? "Confirm Approval" : "Confirm Denial"}
+                                        </Text>
+                                    )}
+                                </Pressable>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
             </View>
         )
     }
@@ -250,13 +444,13 @@ export default function PinkSlipScreen() {
 
                 <Text style={styles.historyTitle}>Request History</Text>
 
-                {items.length === 0 ? (
+                {studentItems.length === 0 ? (
                     <View style={styles.emptyState}>
                         <Text style={styles.emptyText}>No pink slips yet. Create your first request above.</Text>
                     </View>
                 ) : (
                     <View style={styles.historyList}>
-                        {items.map((item, index) => {
+                        {studentItems.map((item, index) => {
                             const status = String(item.status ?? "PENDING").toUpperCase()
                             const color = statusColor(status)
                             const remarks = hideBackendIds(item.remarks?.trim())
@@ -306,6 +500,7 @@ export default function PinkSlipScreen() {
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: "#121212" },
     center: { flex: 1, backgroundColor: "#121212", alignItems: "center", justifyContent: "center" },
+
     scrollContent: { padding: 24, paddingBottom: 30 },
     pageTitle: { color: "#fff", fontSize: 26, fontWeight: "900", letterSpacing: -0.5 },
     pageSubtitle: { color: "rgba(255,255,255,0.54)", fontSize: 14, marginTop: 8 },
@@ -456,4 +651,127 @@ const styles = StyleSheet.create({
         alignSelf: "center",
     },
     statusPillText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
+
+    adminScrollContent: { padding: 16, paddingBottom: 28 },
+    adminTitle: {
+        color: "#fff",
+        fontSize: 24,
+        fontWeight: "900",
+        letterSpacing: 0.8,
+        textAlign: "center",
+        marginBottom: 16,
+    },
+    adminEmptyWrap: {
+        marginTop: 70,
+        alignItems: "center",
+        paddingHorizontal: 20,
+    },
+    adminEmptyIcon: { color: "rgba(255,255,255,0.1)", fontSize: 78, fontWeight: "900" },
+    adminEmptyTitle: { color: "#fff", fontSize: 20, fontWeight: "800", marginTop: 8 },
+    adminEmptySub: { color: "rgba(255,255,255,0.5)", textAlign: "center", marginTop: 8 },
+
+    adminList: { gap: 16 },
+    adminCard: {
+        backgroundColor: "#1E1E1E",
+        borderRadius: 20,
+        borderWidth: 1.5,
+        borderColor: "#333333",
+        padding: 16,
+        shadowColor: "#000",
+        shadowOpacity: 0.25,
+        shadowOffset: { width: 4, height: 4 },
+        shadowRadius: 0,
+        elevation: 4,
+    },
+    adminCardHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+    adminAvatar: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: "rgba(74,222,128,0.1)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    adminAvatarText: { color: "#4ade80", fontWeight: "800", fontSize: 18 },
+    adminStudentName: { color: "#fff", fontWeight: "800", fontSize: 16 },
+    adminStudentMeta: { color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2 },
+    adminDivider: { height: 1, backgroundColor: "#333333", marginVertical: 14 },
+    adminReasonWrap: { gap: 4 },
+    adminReasonLabel: { color: "rgba(255,255,255,0.38)", fontSize: 12, fontWeight: "700" },
+    adminReasonValue: { color: "#fff", fontSize: 14, lineHeight: 20 },
+
+    adminDateRow: { flexDirection: "row", gap: 12, marginTop: 14 },
+    adminDateChip: {
+        flex: 1,
+        borderRadius: 8,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        padding: 8,
+        gap: 4,
+    },
+    adminDateLabel: { color: "rgba(255,255,255,0.38)", fontSize: 11, fontWeight: "700" },
+    adminDateValue: { color: "#fff", fontSize: 12, fontWeight: "800" },
+
+    adminActionRow: { flexDirection: "row", gap: 12, marginTop: 16 },
+    adminActionBtn: {
+        flex: 1,
+        minHeight: 44,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+    },
+    adminDenyBtn: { borderColor: APP_THEME.danger, backgroundColor: "rgba(239,71,111,0.08)" },
+    adminApproveBtn: { borderColor: "#4ade80", backgroundColor: "#4ade80" },
+    adminDenyText: { color: APP_THEME.danger, fontWeight: "800", letterSpacing: 0.6 },
+    adminApproveText: { color: "#fff", fontWeight: "800", letterSpacing: 0.6 },
+
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.45)",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+    },
+    modalCard: {
+        width: "100%",
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: "#333333",
+        backgroundColor: "#1E1E1E",
+        padding: 16,
+        gap: 12,
+    },
+    modalTitle: { color: "#fff", fontSize: 18, fontWeight: "800" },
+    modalInput: {
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.14)",
+        backgroundColor: "rgba(255,255,255,0.06)",
+        color: "#fff",
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        minHeight: 78,
+        textAlignVertical: "top",
+    },
+    modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
+    modalCancelBtn: {
+        minHeight: 40,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.2)",
+        paddingHorizontal: 14,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    modalCancelText: { color: "rgba(255,255,255,0.7)", fontWeight: "700" },
+    modalConfirmBtn: {
+        minHeight: 40,
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    modalConfirmApprove: { backgroundColor: "#4ade80" },
+    modalConfirmDeny: { backgroundColor: APP_THEME.danger },
+    modalConfirmText: { color: "#fff", fontWeight: "800" },
 })
