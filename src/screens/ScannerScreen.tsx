@@ -145,6 +145,20 @@ export default function ScannerScreen() {
         return "✕"
     }, [lastResult])
 
+    const dayBadgeText = useMemo(() => {
+        const dayNumberRaw = Number(lastResult?.meta?.dayNumber)
+        if (Number.isFinite(dayNumberRaw) && dayNumberRaw > 0) {
+            return `Day ${Math.trunc(dayNumberRaw)}`
+        }
+
+        const dayLabel = String(lastResult?.meta?.dayLabel || "").trim()
+        if (dayLabel) {
+            return dayLabel
+        }
+
+        return ""
+    }, [lastResult])
+
     const handleScanned = async (value: string) => {
         const now = Date.now()
         if (!value || now - lastScanAtRef.current < SCAN_DEBOUNCE_MS || !canScan) return
@@ -333,6 +347,11 @@ export default function ScannerScreen() {
                             </View>
                             <Text style={styles.modalTitle}>{resultTitle}</Text>
                             <Text style={styles.modalResultCode}>{lastResult?.result ?? "-"}</Text>
+                            {dayBadgeText ? (
+                                <View style={styles.dayBadge}>
+                                    <Text style={styles.dayBadgeText}>{dayBadgeText}</Text>
+                                </View>
+                            ) : null}
                             <Text style={styles.modalMessage}>{lastResult?.message ?? "No message"}</Text>
                         </View>
 
@@ -567,6 +586,21 @@ const styles = StyleSheet.create({
         fontWeight: "800",
         marginTop: 10,
         textAlign: "center",
+    },
+    dayBadge: {
+        marginTop: 10,
+        borderRadius: 999,
+        backgroundColor: "#071226",
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.35)",
+    },
+    dayBadgeText: {
+        color: "#fff",
+        fontSize: 13,
+        fontWeight: "800",
+        letterSpacing: 0.3,
     },
     modalMessage: {
         color: "#071226",
