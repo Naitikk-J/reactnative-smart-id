@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react"
 import {
     ActivityIndicator,
     Alert,
+    Keyboard,
     Modal,
     Pressable,
     RefreshControl,
@@ -9,6 +10,7 @@ import {
     StyleSheet,
     Text,
     TextInput,
+    TouchableWithoutFeedback,
     View,
 } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
@@ -88,6 +90,36 @@ function isAdminRole(role?: string): boolean {
     return normalized === "SUPER_ADMIN" || normalized === "HOD" || normalized === "WARDEN"
 }
 
+const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+
+function toInputDate(value: Date): string {
+    const year = value.getFullYear()
+    const month = String(value.getMonth() + 1).padStart(2, "0")
+    const date = String(value.getDate()).padStart(2, "0")
+    return `${year}-${month}-${date}`
+}
+
+function parseInputDate(value: string): Date | null {
+    const normalized = String(value || "").trim()
+    const parts = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (!parts) return null
+
+    const year = Number(parts[1])
+    const monthIndex = Number(parts[2]) - 1
+    const day = Number(parts[3])
+
+    const parsed = new Date(year, monthIndex, day)
+    if (
+        parsed.getFullYear() !== year ||
+        parsed.getMonth() !== monthIndex ||
+        parsed.getDate() !== day
+    ) {
+        return null
+    }
+
+    return parsed
+}
+
 export default function PinkSlipScreen() {
     const { user } = useAuth()
     const adminMode = useMemo(() => isAdminRole(user?.role), [user?.role])
@@ -101,6 +133,12 @@ export default function PinkSlipScreen() {
     const [fromDate, setFromDate] = useState("")
     const [toDate, setToDate] = useState("")
     const [submitLoading, setSubmitLoading] = useState(false)
+    const [calendarVisible, setCalendarVisible] = useState(false)
+    const [calendarTarget, setCalendarTarget] = useState<"from" | "to">("from")
+    const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
+        const now = new Date()
+        return new Date(now.getFullYear(), now.getMonth(), 1)
+    })
 
     const [actionModalVisible, setActionModalVisible] = useState(false)
     const [actionTarget, setActionTarget] = useState<PinkSlipItem | null>(null)
@@ -140,6 +178,33 @@ export default function PinkSlipScreen() {
     const pendingCount = useMemo(() => studentItems.filter((s) => s.status === "PENDING").length, [studentItems])
     const rejectedCount = useMemo(() => studentItems.filter((s) => s.status === "REJECTED").length, [studentItems])
     const latestApprovedSlip = useMemo(() => studentItems.find((s) => s.status === "APPROVED") ?? null, [studentItems])
+    const selectedCalendarDate = useMemo(
+        () => parseInputDate(calendarTarget === "from" ? fromDate : toDate),
+        [calendarTarget, fromDate, toDate],
+    )
+
+    const calendarMonthLabel = useMemo(
+        () => calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+        [calendarMonth],
+    )
+
+    const calendarCells = useMemo(() => {
+        const year = calendarMonth.getFullYear()
+        const month = calendarMonth.getMonth()
+        const firstDay = new Date(year, month, 1).getDay()
+        const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+        const cells: Array<number | null> = [
+            ...Array.from({ length: firstDay }, () => null),
+            ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+        ]
+
+        while (cells.length % 7 !== 0) {
+            cells.push(null)
+        }
+
+        return cells
+    }, [calendarMonth])
 
     const onRefresh = async () => {
         setRefreshing(true)
@@ -147,9 +212,50 @@ export default function PinkSlipScreen() {
         setRefreshing(false)
     }
 
+    const openCalendar = (target: "from" | "to") => {
+        Keyboard.dismiss()
+        setCalendarTarget(target)
+
+        const existingValue = target === "from" ? fromDate : toDate
+        const existingDate = parseInputDate(existingValue)
+        const baseDate = existingDate ?? new Date()
+        setCalendarMonth(new Date(baseDate.getFullYear(), baseDate.getMonth(), 1))
+        setCalendarVisible(true)
+    }
+
+    const shiftCalendarMonth = (offset: number) => {
+        setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1))
+    }
+
+    const selectCalendarDay = (day: number) => {
+        const selected = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
+        const formatted = toInputDate(selected)
+
+        if (calendarTarget === "from") {
+            setFromDate(formatted)
+        } else {
+            setToDate(formatted)
+        }
+
+        setCalendarVisible(false)
+    }
+
     const onCreate = async () => {
         if (!reason.trim() || !fromDate.trim() || !toDate.trim()) {
             Alert.alert("Missing fields", "Reason, from date, to date are required")
+            return
+        }
+
+        const parsedFromDate = parseInputDate(fromDate)
+        const parsedToDate = parseInputDate(toDate)
+
+        if (!parsedFromDate || !parsedToDate) {
+            Alert.alert("Invalid date", "Please choose valid dates from calendar")
+            return
+        }
+
+        if (parsedToDate.getTime() < parsedFromDate.getTime()) {
+            Alert.alert("Invalid date range", "To date must be on or after From date")
             return
         }
 
@@ -228,6 +334,169 @@ export default function PinkSlipScreen() {
     // ══════════════════════════════════════════════════════════════
     if (adminMode) {
         return (
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                <View style={styles.root}>
+                    <LinearGradient
+                        colors={["#0A0E21", "#0F1535", "#0A0E21"]}
+                        start={{ x: 0.5, y: 0 }}
+                        end={{ x: 0.5, y: 1 }}
+                        style={StyleSheet.absoluteFill}
+                    />
+                    {/* Glass App Bar */}
+                    <View style={styles.glassAppBar}>
+                        <View style={{ width: 48 }} />
+                        <Text style={styles.appBarTitle}>Pink Slip Management</Text>
+                        <View style={{ width: 48 }} />
+                    </View>
+
+                    <ScrollView
+                        contentContainerStyle={styles.scrollContent}
+                        keyboardShouldPersistTaps="handled"
+                        onScrollBeginDrag={Keyboard.dismiss}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={APP_THEME.accent} />}
+                    >
+                        {adminItems.length === 0 ? (
+                            <View style={styles.adminEmptyWrap}>
+                                <View style={styles.adminEmptyIcon}>
+                                    <Text style={styles.adminEmptyIconText}>✓</Text>
+                                </View>
+                                <Text style={styles.adminEmptyTitle}>No Pending Requests</Text>
+                                <Text style={styles.adminEmptySub}>All caught up! New requests will appear here.</Text>
+                            </View>
+                        ) : (
+                            adminItems.map((item, index) => {
+                                const studentName = String(item.student?.fullName ?? "Unknown Student")
+                                const initial = studentName.charAt(0).toUpperCase() || "?"
+                                const enrollment = String(item.student?.enrollmentNo ?? "N/A")
+                                const department = String(item.student?.department ?? "")
+                                const reasonText = hideBackendIds(item.reason?.trim()) || "No reason provided"
+                                const fromDateStr = formatDateFull(item.fromDate)
+                                const toDateStr = formatDateFull(item.toDate)
+
+                                return (
+                                    <View key={String(item.id ?? index)} style={styles.adminCard}>
+                                        {/* Student Header */}
+                                        <View style={styles.adminCardHeader}>
+                                            <LinearGradient
+                                                colors={[APP_THEME.accent, APP_THEME.accentPurple]}
+                                                style={styles.adminAvatar}
+                                            >
+                                                <Text style={styles.adminAvatarText}>{initial}</Text>
+                                            </LinearGradient>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.adminStudentName}>{studentName}</Text>
+                                                <Text style={styles.adminStudentMeta}>
+                                                    {enrollment}
+                                                    {department ? ` • ${department}` : ""}
+                                                </Text>
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.adminDivider} />
+
+                                        {/* Reason */}
+                                        <View style={{ gap: 4 }}>
+                                            <Text style={styles.adminReasonLabel}>Reason:</Text>
+                                            <Text style={styles.adminReasonValue}>{reasonText}</Text>
+                                        </View>
+
+                                        {/* Dates */}
+                                        <View style={styles.adminDateRow}>
+                                            <View style={styles.adminDateChip}>
+                                                <Text style={styles.adminDateLabel}>From</Text>
+                                                <View style={styles.adminDateValueRow}>
+                                                    <Text style={styles.adminDateIcon}>📅</Text>
+                                                    <Text style={styles.adminDateValue}>{fromDateStr}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={styles.adminDateChip}>
+                                                <Text style={styles.adminDateLabel}>To</Text>
+                                                <View style={styles.adminDateValueRow}>
+                                                    <Text style={styles.adminDateIcon}>📅</Text>
+                                                    <Text style={styles.adminDateValue}>{toDateStr}</Text>
+                                                </View>
+                                            </View>
+                                        </View>
+
+                                        {/* Actions */}
+                                        <View style={styles.adminActionRow}>
+                                            <Pressable
+                                                style={styles.adminDenyBtn}
+                                                onPress={() => openAdminActionModal(item, "REJECTED")}
+                                            >
+                                                <Text style={styles.adminDenyText}>DENY</Text>
+                                            </Pressable>
+                                            <Pressable
+                                                style={styles.adminApproveBtnWrap}
+                                                onPress={() => openAdminActionModal(item, "APPROVED")}
+                                            >
+                                                <LinearGradient
+                                                    colors={[APP_THEME.success, "#00C853"]}
+                                                    style={styles.adminApproveBtn}
+                                                >
+                                                    <Text style={styles.adminApproveText}>APPROVE</Text>
+                                                </LinearGradient>
+                                            </Pressable>
+                                        </View>
+                                    </View>
+                                )
+                            })
+                        )}
+                    </ScrollView>
+
+                    {/* Admin Action Modal */}
+                    <Modal visible={actionModalVisible} transparent animationType="fade" onRequestClose={closeAdminActionModal}>
+                        <View style={styles.modalBackdrop}>
+                            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                                <View style={styles.modalCard}>
+                                    <Text style={styles.modalTitle}>
+                                        {actionStatus === "APPROVED" ? "Approve Request?" : "Deny Request?"}
+                                    </Text>
+                                    <TextInput
+                                        style={styles.modalInput}
+                                        value={adminRemark}
+                                        onChangeText={setAdminRemark}
+                                        placeholder="Add remarks (optional)"
+                                        placeholderTextColor="rgba(255,255,255,0.35)"
+                                        multiline
+                                    />
+                                    <View style={styles.modalActions}>
+                                        <Pressable style={styles.modalCancelBtn} onPress={closeAdminActionModal}>
+                                            <Text style={styles.modalCancelText}>Cancel</Text>
+                                        </Pressable>
+                                        <Pressable onPress={onConfirmAdminAction} disabled={actionLoading}>
+                                            <LinearGradient
+                                                colors={
+                                                    actionStatus === "APPROVED"
+                                                        ? [APP_THEME.success, "#00C853"]
+                                                        : [APP_THEME.danger, "#D50000"]
+                                                }
+                                                style={styles.modalConfirmBtn}
+                                            >
+                                                {actionLoading ? (
+                                                    <ActivityIndicator color="#fff" size="small" />
+                                                ) : (
+                                                    <Text style={styles.modalConfirmText}>
+                                                        {actionStatus === "APPROVED" ? "Confirm Approval" : "Confirm Denial"}
+                                                    </Text>
+                                                )}
+                                            </LinearGradient>
+                                        </Pressable>
+                                    </View>
+                                </View>
+                            </TouchableWithoutFeedback>
+                        </View>
+                    </Modal>
+                </View>
+            </TouchableWithoutFeedback>
+        )
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // STUDENT VIEW
+    // ══════════════════════════════════════════════════════════════
+    return (
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <View style={styles.root}>
                 <LinearGradient
                     colors={["#0A0E21", "#0F1535", "#0A0E21"]}
@@ -238,345 +507,262 @@ export default function PinkSlipScreen() {
                 {/* Glass App Bar */}
                 <View style={styles.glassAppBar}>
                     <View style={{ width: 48 }} />
-                    <Text style={styles.appBarTitle}>Pink Slip Management</Text>
+                    <Text style={styles.appBarTitle}>Pink Slip</Text>
                     <View style={{ width: 48 }} />
                 </View>
 
                 <ScrollView
                     contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    onScrollBeginDrag={Keyboard.dismiss}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={APP_THEME.accent} />}
                 >
-                    {adminItems.length === 0 ? (
-                        <View style={styles.adminEmptyWrap}>
-                            <View style={styles.adminEmptyIcon}>
-                                <Text style={styles.adminEmptyIconText}>✓</Text>
-                            </View>
-                            <Text style={styles.adminEmptyTitle}>No Pending Requests</Text>
-                            <Text style={styles.adminEmptySub}>All caught up! New requests will appear here.</Text>
+                    <Text style={styles.pageTitle}>Request Leave</Text>
+                    <Text style={styles.pageSubtitle}>Submit a pink slip request to your warden for approval.</Text>
+
+                    {/* Stat Chips */}
+                    <View style={styles.statsRow}>
+                        <View style={[styles.statChip, { borderColor: APP_THEME.success + "33", backgroundColor: APP_THEME.success + "14" }]}>
+                            <Text style={[styles.statCount, { color: APP_THEME.success }]}>{approvedCount}</Text>
+                            <Text style={styles.statLabel}>Approved</Text>
                         </View>
-                    ) : (
-                        adminItems.map((item, index) => {
-                            const studentName = String(item.student?.fullName ?? "Unknown Student")
-                            const initial = studentName.charAt(0).toUpperCase() || "?"
-                            const enrollment = String(item.student?.enrollmentNo ?? "N/A")
-                            const department = String(item.student?.department ?? "")
-                            const reasonText = hideBackendIds(item.reason?.trim()) || "No reason provided"
-                            const fromDateStr = formatDateFull(item.fromDate)
-                            const toDateStr = formatDateFull(item.toDate)
+                        <View style={[styles.statChip, { borderColor: APP_THEME.warning + "33", backgroundColor: APP_THEME.warning + "14" }]}>
+                            <Text style={[styles.statCount, { color: APP_THEME.warning }]}>{pendingCount}</Text>
+                            <Text style={styles.statLabel}>Pending</Text>
+                        </View>
+                        <View style={[styles.statChip, { borderColor: APP_THEME.danger + "33", backgroundColor: APP_THEME.danger + "14" }]}>
+                            <Text style={[styles.statCount, { color: APP_THEME.danger }]}>{rejectedCount}</Text>
+                            <Text style={styles.statLabel}>Rejected</Text>
+                        </View>
+                    </View>
 
-                            return (
-                                <View key={String(item.id ?? index)} style={styles.adminCard}>
-                                    {/* Student Header */}
-                                    <View style={styles.adminCardHeader}>
-                                        <LinearGradient
-                                            colors={[APP_THEME.accent, APP_THEME.accentPurple]}
-                                            style={styles.adminAvatar}
-                                        >
-                                            <Text style={styles.adminAvatarText}>{initial}</Text>
-                                        </LinearGradient>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.adminStudentName}>{studentName}</Text>
-                                            <Text style={styles.adminStudentMeta}>
-                                                {enrollment}
-                                                {department ? ` • ${department}` : ""}
-                                            </Text>
-                                        </View>
+                    {/* Active Ticket Card */}
+                    {latestApprovedSlip ? (
+                        <View style={styles.ticketCard}>
+                            <LinearGradient
+                                colors={[APP_THEME.accent + "26", APP_THEME.accentPurple + "14"]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={StyleSheet.absoluteFill}
+                            />
+                            <View style={styles.ticketCardInner}>
+                                <View style={styles.ticketTopRow}>
+                                    <Text style={styles.ticketIcon}>🎫</Text>
+                                    <Text style={styles.ticketTitle}>Pink Slip Ticket</Text>
+                                    <LinearGradient
+                                        colors={[APP_THEME.accent, APP_THEME.accentPurple]}
+                                        style={styles.ticketActiveChip}
+                                    >
+                                        <Text style={styles.ticketActiveText}>ACTIVE</Text>
+                                    </LinearGradient>
+                                </View>
+
+                                <View style={styles.ticketDivider} />
+
+                                <Text style={styles.ticketId}>Ticket ID: {resolveTicketId(latestApprovedSlip)}</Text>
+
+                                <View style={styles.ticketReasonRow}>
+                                    <LinearGradient
+                                        colors={[APP_THEME.accent, APP_THEME.accentPurple]}
+                                        style={styles.ticketBadgeIcon}
+                                    >
+                                        <Text style={styles.ticketBadgeIconText}>✓</Text>
+                                    </LinearGradient>
+                                    <Text style={styles.ticketReason} numberOfLines={2}>
+                                        {hideBackendIds(latestApprovedSlip.reason?.trim()) || "Approved leave"}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.ticketMetaRow}>
+                                    <View style={styles.ticketMetaCard}>
+                                        <Text style={styles.ticketMetaLabel}>VALIDITY</Text>
+                                        <Text style={styles.ticketMetaValue}>
+                                            {formatDateShort(latestApprovedSlip.fromDate)} - {formatDateFull(latestApprovedSlip.toDate)}
+                                        </Text>
                                     </View>
-
-                                    <View style={styles.adminDivider} />
-
-                                    {/* Reason */}
-                                    <View style={{ gap: 4 }}>
-                                        <Text style={styles.adminReasonLabel}>Reason:</Text>
-                                        <Text style={styles.adminReasonValue}>{reasonText}</Text>
-                                    </View>
-
-                                    {/* Dates */}
-                                    <View style={styles.adminDateRow}>
-                                        <View style={styles.adminDateChip}>
-                                            <Text style={styles.adminDateLabel}>From</Text>
-                                            <View style={styles.adminDateValueRow}>
-                                                <Text style={styles.adminDateIcon}>📅</Text>
-                                                <Text style={styles.adminDateValue}>{fromDateStr}</Text>
-                                            </View>
-                                        </View>
-                                        <View style={styles.adminDateChip}>
-                                            <Text style={styles.adminDateLabel}>To</Text>
-                                            <View style={styles.adminDateValueRow}>
-                                                <Text style={styles.adminDateIcon}>📅</Text>
-                                                <Text style={styles.adminDateValue}>{toDateStr}</Text>
-                                            </View>
-                                        </View>
-                                    </View>
-
-                                    {/* Actions */}
-                                    <View style={styles.adminActionRow}>
-                                        <Pressable
-                                            style={styles.adminDenyBtn}
-                                            onPress={() => openAdminActionModal(item, "REJECTED")}
-                                        >
-                                            <Text style={styles.adminDenyText}>DENY</Text>
-                                        </Pressable>
-                                        <Pressable
-                                            style={styles.adminApproveBtnWrap}
-                                            onPress={() => openAdminActionModal(item, "APPROVED")}
-                                        >
-                                            <LinearGradient
-                                                colors={[APP_THEME.success, "#00C853"]}
-                                                style={styles.adminApproveBtn}
-                                            >
-                                                <Text style={styles.adminApproveText}>APPROVE</Text>
-                                            </LinearGradient>
-                                        </Pressable>
+                                    <View style={styles.ticketMetaCard}>
+                                        <Text style={styles.ticketMetaLabel}>STATUS</Text>
+                                        <Text style={styles.ticketMetaValue}>APPROVED</Text>
                                     </View>
                                 </View>
-                            )
-                        })
+
+                                {hideBackendIds(latestApprovedSlip.remarks?.trim()) ? (
+                                    <Text style={styles.ticketRemark}>
+                                        Warden note: {hideBackendIds(latestApprovedSlip.remarks?.trim())}
+                                    </Text>
+                                ) : null}
+                            </View>
+                        </View>
+                    ) : null}
+
+                    {/* Form Card */}
+                    <View style={styles.formCard}>
+                        <TextInput
+                            value={reason}
+                            onChangeText={setReason}
+                            style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]}
+                            multiline
+                            placeholder="Reason for leave"
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                        />
+
+                        <View style={styles.dateRow}>
+                            <View style={styles.dateSelector}>
+                                <Text style={styles.dateSelectorLabel}>From</Text>
+                                <Pressable style={styles.dateSelectorInput} onPress={() => openCalendar("from")}>
+                                    <Text
+                                        style={[
+                                            styles.dateSelectorInputText,
+                                            !fromDate ? styles.dateSelectorInputPlaceholder : null,
+                                        ]}
+                                    >
+                                        {fromDate || "YYYY-MM-DD"}
+                                    </Text>
+                                    <Text style={styles.dateSelectorInputIcon}>📅</Text>
+                                </Pressable>
+                            </View>
+                            <View style={styles.dateSelector}>
+                                <Text style={styles.dateSelectorLabel}>To</Text>
+                                <Pressable style={styles.dateSelectorInput} onPress={() => openCalendar("to")}>
+                                    <Text
+                                        style={[
+                                            styles.dateSelectorInputText,
+                                            !toDate ? styles.dateSelectorInputPlaceholder : null,
+                                        ]}
+                                    >
+                                        {toDate || "YYYY-MM-DD"}
+                                    </Text>
+                                    <Text style={styles.dateSelectorInputIcon}>📅</Text>
+                                </Pressable>
+                            </View>
+                        </View>
+
+                        <Pressable onPress={onCreate} disabled={submitLoading}>
+                            <LinearGradient
+                                colors={submitLoading ? ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"] : [APP_THEME.accent, APP_THEME.accentPurple]}
+                                start={{ x: 0, y: 0.5 }}
+                                end={{ x: 1, y: 0.5 }}
+                                style={styles.submitBtn}
+                            >
+                                {submitLoading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitBtnText}>SUBMIT REQUEST</Text>
+                                )}
+                            </LinearGradient>
+                        </Pressable>
+                    </View>
+
+                    {/* History */}
+                    <Text style={styles.historyTitle}>Request History</Text>
+
+                    {studentItems.length === 0 ? (
+                        <View style={styles.emptyState}>
+                            <Text style={styles.emptyText}>No pink slips yet. Create your first request above.</Text>
+                        </View>
+                    ) : (
+                        <View style={{ gap: 10 }}>
+                            {studentItems.map((item, index) => {
+                                const status = String(item.status ?? "PENDING").toUpperCase()
+                                const color = statusColor(status)
+                                const remarks = hideBackendIds(item.remarks?.trim())
+                                const safeReason = hideBackendIds(item.reason?.trim()) || "No reason provided"
+
+                                return (
+                                    <View key={String(item.id ?? index)} style={[styles.historyCard, { borderColor: color + "1A" }]}>
+                                        <View style={[styles.historyIconWrap, { backgroundColor: color + "1A" }]}>
+                                            <Text style={[styles.historyIcon, { color }]}>
+                                                {status === "APPROVED" ? "✓" : status === "REJECTED" ? "✕" : "⌛"}
+                                            </Text>
+                                        </View>
+
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.historyTicket}>Ticket: {resolveTicketId(item)}</Text>
+                                            <Text style={styles.historyReason}>{safeReason}</Text>
+                                            <Text style={styles.historyDates}>
+                                                {formatDateShort(item.fromDate)} - {formatDateShort(item.toDate)}
+                                            </Text>
+                                            {item.updatedAt ? (
+                                                <Text style={styles.historyUpdated}>Updated {formatDateTime(item.updatedAt)}</Text>
+                                            ) : null}
+                                            {remarks ? (
+                                                <Text style={styles.historyRemark}>Remark: {remarks}</Text>
+                                            ) : null}
+                                        </View>
+
+                                        <View style={[styles.historyStatusPill, { backgroundColor: color + "1A", borderColor: color + "40" }]}>
+                                            <Text style={[styles.historyStatusText, { color }]}>{status}</Text>
+                                        </View>
+                                    </View>
+                                )
+                            })}
+                        </View>
                     )}
                 </ScrollView>
 
-                {/* Admin Action Modal */}
-                <Modal visible={actionModalVisible} transparent animationType="fade" onRequestClose={closeAdminActionModal}>
+                <Modal
+                    visible={calendarVisible}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setCalendarVisible(false)}
+                >
                     <View style={styles.modalBackdrop}>
-                        <View style={styles.modalCard}>
-                            <Text style={styles.modalTitle}>
-                                {actionStatus === "APPROVED" ? "Approve Request?" : "Deny Request?"}
-                            </Text>
-                            <TextInput
-                                style={styles.modalInput}
-                                value={adminRemark}
-                                onChangeText={setAdminRemark}
-                                placeholder="Add remarks (optional)"
-                                placeholderTextColor="rgba(255,255,255,0.35)"
-                                multiline
-                            />
-                            <View style={styles.modalActions}>
-                                <Pressable style={styles.modalCancelBtn} onPress={closeAdminActionModal}>
-                                    <Text style={styles.modalCancelText}>Cancel</Text>
+                        <View style={styles.calendarCard}>
+                            <View style={styles.calendarTopRow}>
+                                <Text style={styles.calendarTitle}>
+                                    {calendarTarget === "from" ? "Select From Date" : "Select To Date"}
+                                </Text>
+                                <Pressable onPress={() => setCalendarVisible(false)}>
+                                    <Text style={styles.calendarClose}>✕</Text>
                                 </Pressable>
-                                <Pressable onPress={onConfirmAdminAction} disabled={actionLoading}>
-                                    <LinearGradient
-                                        colors={
-                                            actionStatus === "APPROVED"
-                                                ? [APP_THEME.success, "#00C853"]
-                                                : [APP_THEME.danger, "#D50000"]
-                                        }
-                                        style={styles.modalConfirmBtn}
-                                    >
-                                        {actionLoading ? (
-                                            <ActivityIndicator color="#fff" size="small" />
-                                        ) : (
-                                            <Text style={styles.modalConfirmText}>
-                                                {actionStatus === "APPROVED" ? "Confirm Approval" : "Confirm Denial"}
+                            </View>
+
+                            <View style={styles.calendarMonthRow}>
+                                <Pressable style={styles.calendarArrowBtn} onPress={() => shiftCalendarMonth(-1)}>
+                                    <Text style={styles.calendarArrowText}>‹</Text>
+                                </Pressable>
+                                <Text style={styles.calendarMonthText}>{calendarMonthLabel}</Text>
+                                <Pressable style={styles.calendarArrowBtn} onPress={() => shiftCalendarMonth(1)}>
+                                    <Text style={styles.calendarArrowText}>›</Text>
+                                </Pressable>
+                            </View>
+
+                            <View style={styles.calendarWeekRow}>
+                                {WEEKDAY_LABELS.map((label) => (
+                                    <Text key={label} style={styles.calendarWeekLabel}>{label}</Text>
+                                ))}
+                            </View>
+
+                            <View style={styles.calendarGrid}>
+                                {calendarCells.map((day, index) => {
+                                    if (day == null) {
+                                        return <View key={`empty-${index}`} style={styles.calendarDayCell} />
+                                    }
+
+                                    const isSelected =
+                                        selectedCalendarDate != null &&
+                                        selectedCalendarDate.getFullYear() === calendarMonth.getFullYear() &&
+                                        selectedCalendarDate.getMonth() === calendarMonth.getMonth() &&
+                                        selectedCalendarDate.getDate() === day
+
+                                    return (
+                                        <Pressable
+                                            key={`day-${day}-${index}`}
+                                            style={[styles.calendarDayCell, isSelected ? styles.calendarDayCellSelected : null]}
+                                            onPress={() => selectCalendarDay(day)}
+                                        >
+                                            <Text style={[styles.calendarDayText, isSelected ? styles.calendarDayTextSelected : null]}>
+                                                {day}
                                             </Text>
-                                        )}
-                                    </LinearGradient>
-                                </Pressable>
+                                        </Pressable>
+                                    )
+                                })}
                             </View>
                         </View>
                     </View>
                 </Modal>
             </View>
-        )
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // STUDENT VIEW
-    // ══════════════════════════════════════════════════════════════
-    return (
-        <View style={styles.root}>
-            <LinearGradient
-                colors={["#0A0E21", "#0F1535", "#0A0E21"]}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
-            {/* Glass App Bar */}
-            <View style={styles.glassAppBar}>
-                <View style={{ width: 48 }} />
-                <Text style={styles.appBarTitle}>Pink Slip</Text>
-                <View style={{ width: 48 }} />
-            </View>
-
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={APP_THEME.accent} />}
-            >
-                <Text style={styles.pageTitle}>Request Leave</Text>
-                <Text style={styles.pageSubtitle}>Submit a pink slip request to your warden for approval.</Text>
-
-                {/* Stat Chips */}
-                <View style={styles.statsRow}>
-                    <View style={[styles.statChip, { borderColor: APP_THEME.success + "33", backgroundColor: APP_THEME.success + "14" }]}>
-                        <Text style={[styles.statCount, { color: APP_THEME.success }]}>{approvedCount}</Text>
-                        <Text style={styles.statLabel}>Approved</Text>
-                    </View>
-                    <View style={[styles.statChip, { borderColor: APP_THEME.warning + "33", backgroundColor: APP_THEME.warning + "14" }]}>
-                        <Text style={[styles.statCount, { color: APP_THEME.warning }]}>{pendingCount}</Text>
-                        <Text style={styles.statLabel}>Pending</Text>
-                    </View>
-                    <View style={[styles.statChip, { borderColor: APP_THEME.danger + "33", backgroundColor: APP_THEME.danger + "14" }]}>
-                        <Text style={[styles.statCount, { color: APP_THEME.danger }]}>{rejectedCount}</Text>
-                        <Text style={styles.statLabel}>Rejected</Text>
-                    </View>
-                </View>
-
-                {/* Active Ticket Card */}
-                {latestApprovedSlip ? (
-                    <View style={styles.ticketCard}>
-                        <LinearGradient
-                            colors={[APP_THEME.accent + "26", APP_THEME.accentPurple + "14"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={StyleSheet.absoluteFill}
-                        />
-                        <View style={styles.ticketCardInner}>
-                            <View style={styles.ticketTopRow}>
-                                <Text style={styles.ticketIcon}>🎫</Text>
-                                <Text style={styles.ticketTitle}>Pink Slip Ticket</Text>
-                                <LinearGradient
-                                    colors={[APP_THEME.accent, APP_THEME.accentPurple]}
-                                    style={styles.ticketActiveChip}
-                                >
-                                    <Text style={styles.ticketActiveText}>ACTIVE</Text>
-                                </LinearGradient>
-                            </View>
-
-                            <View style={styles.ticketDivider} />
-
-                            <Text style={styles.ticketId}>Ticket ID: {resolveTicketId(latestApprovedSlip)}</Text>
-
-                            <View style={styles.ticketReasonRow}>
-                                <LinearGradient
-                                    colors={[APP_THEME.accent, APP_THEME.accentPurple]}
-                                    style={styles.ticketBadgeIcon}
-                                >
-                                    <Text style={styles.ticketBadgeIconText}>✓</Text>
-                                </LinearGradient>
-                                <Text style={styles.ticketReason} numberOfLines={2}>
-                                    {hideBackendIds(latestApprovedSlip.reason?.trim()) || "Approved leave"}
-                                </Text>
-                            </View>
-
-                            <View style={styles.ticketMetaRow}>
-                                <View style={styles.ticketMetaCard}>
-                                    <Text style={styles.ticketMetaLabel}>VALIDITY</Text>
-                                    <Text style={styles.ticketMetaValue}>
-                                        {formatDateShort(latestApprovedSlip.fromDate)} - {formatDateFull(latestApprovedSlip.toDate)}
-                                    </Text>
-                                </View>
-                                <View style={styles.ticketMetaCard}>
-                                    <Text style={styles.ticketMetaLabel}>STATUS</Text>
-                                    <Text style={styles.ticketMetaValue}>APPROVED</Text>
-                                </View>
-                            </View>
-
-                            {hideBackendIds(latestApprovedSlip.remarks?.trim()) ? (
-                                <Text style={styles.ticketRemark}>
-                                    Warden note: {hideBackendIds(latestApprovedSlip.remarks?.trim())}
-                                </Text>
-                            ) : null}
-                        </View>
-                    </View>
-                ) : null}
-
-                {/* Form Card */}
-                <View style={styles.formCard}>
-                    <TextInput
-                        value={reason}
-                        onChangeText={setReason}
-                        style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]}
-                        multiline
-                        placeholder="Reason for leave"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                    />
-
-                    <View style={styles.dateRow}>
-                        <View style={styles.dateSelector}>
-                            <Text style={styles.dateSelectorLabel}>From</Text>
-                            <TextInput
-                                value={fromDate}
-                                onChangeText={setFromDate}
-                                style={styles.dateSelectorInput}
-                                placeholder="YYYY-MM-DD"
-                                placeholderTextColor="rgba(255,255,255,0.3)"
-                            />
-                        </View>
-                        <View style={styles.dateSelector}>
-                            <Text style={styles.dateSelectorLabel}>To</Text>
-                            <TextInput
-                                value={toDate}
-                                onChangeText={setToDate}
-                                style={styles.dateSelectorInput}
-                                placeholder="YYYY-MM-DD"
-                                placeholderTextColor="rgba(255,255,255,0.3)"
-                            />
-                        </View>
-                    </View>
-
-                    <Pressable onPress={onCreate} disabled={submitLoading}>
-                        <LinearGradient
-                            colors={submitLoading ? ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"] : [APP_THEME.accent, APP_THEME.accentPurple]}
-                            start={{ x: 0, y: 0.5 }}
-                            end={{ x: 1, y: 0.5 }}
-                            style={styles.submitBtn}
-                        >
-                            {submitLoading ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <Text style={styles.submitBtnText}>SUBMIT REQUEST</Text>
-                            )}
-                        </LinearGradient>
-                    </Pressable>
-                </View>
-
-                {/* History */}
-                <Text style={styles.historyTitle}>Request History</Text>
-
-                {studentItems.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <Text style={styles.emptyText}>No pink slips yet. Create your first request above.</Text>
-                    </View>
-                ) : (
-                    <View style={{ gap: 10 }}>
-                        {studentItems.map((item, index) => {
-                            const status = String(item.status ?? "PENDING").toUpperCase()
-                            const color = statusColor(status)
-                            const remarks = hideBackendIds(item.remarks?.trim())
-                            const safeReason = hideBackendIds(item.reason?.trim()) || "No reason provided"
-
-                            return (
-                                <View key={String(item.id ?? index)} style={[styles.historyCard, { borderColor: color + "1A" }]}>
-                                    <View style={[styles.historyIconWrap, { backgroundColor: color + "1A" }]}>
-                                        <Text style={[styles.historyIcon, { color }]}>
-                                            {status === "APPROVED" ? "✓" : status === "REJECTED" ? "✕" : "⌛"}
-                                        </Text>
-                                    </View>
-
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.historyTicket}>Ticket: {resolveTicketId(item)}</Text>
-                                        <Text style={styles.historyReason}>{safeReason}</Text>
-                                        <Text style={styles.historyDates}>
-                                            {formatDateShort(item.fromDate)} - {formatDateShort(item.toDate)}
-                                        </Text>
-                                        {item.updatedAt ? (
-                                            <Text style={styles.historyUpdated}>Updated {formatDateTime(item.updatedAt)}</Text>
-                                        ) : null}
-                                        {remarks ? (
-                                            <Text style={styles.historyRemark}>Remark: {remarks}</Text>
-                                        ) : null}
-                                    </View>
-
-                                    <View style={[styles.historyStatusPill, { backgroundColor: color + "1A", borderColor: color + "40" }]}>
-                                        <Text style={[styles.historyStatusText, { color }]}>{status}</Text>
-                                    </View>
-                                </View>
-                            )
-                        })}
-                    </View>
-                )}
-            </ScrollView>
-        </View>
+        </TouchableWithoutFeedback>
     )
 }
 
@@ -704,10 +890,22 @@ const styles = StyleSheet.create({
     },
     dateSelectorLabel: { color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: "600", marginBottom: 6 },
     dateSelectorInput: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        minHeight: 22,
+    },
+    dateSelectorInputText: {
         color: APP_THEME.text,
         fontSize: 13,
         fontWeight: "600",
-        padding: 0,
+    },
+    dateSelectorInputPlaceholder: {
+        color: "rgba(255,255,255,0.3)",
+    },
+    dateSelectorInputIcon: {
+        fontSize: 14,
+        opacity: 0.9,
     },
     submitBtn: {
         height: 56,
@@ -902,4 +1100,88 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     modalConfirmText: { color: "#fff", fontWeight: "700" },
+
+    // ── Calendar ──
+    calendarCard: {
+        width: "100%",
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: APP_THEME.glassBorder,
+        backgroundColor: APP_THEME.surfaceDark,
+        padding: 16,
+        gap: 12,
+    },
+    calendarTopRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    calendarTitle: {
+        color: APP_THEME.text,
+        fontSize: 16,
+        fontWeight: "700",
+    },
+    calendarClose: {
+        color: "rgba(255,255,255,0.7)",
+        fontSize: 18,
+        fontWeight: "700",
+    },
+    calendarMonthRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    calendarArrowBtn: {
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(255,255,255,0.05)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.08)",
+    },
+    calendarArrowText: {
+        color: APP_THEME.text,
+        fontSize: 18,
+        fontWeight: "700",
+    },
+    calendarMonthText: {
+        color: APP_THEME.text,
+        fontSize: 14,
+        fontWeight: "700",
+    },
+    calendarWeekRow: {
+        flexDirection: "row",
+    },
+    calendarWeekLabel: {
+        flex: 1,
+        textAlign: "center",
+        color: "rgba(255,255,255,0.45)",
+        fontSize: 11,
+        fontWeight: "700",
+    },
+    calendarGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+    },
+    calendarDayCell: {
+        width: "14.2857%",
+        height: 38,
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    calendarDayCellSelected: {
+        backgroundColor: APP_THEME.accent,
+    },
+    calendarDayText: {
+        color: APP_THEME.text,
+        fontSize: 13,
+        fontWeight: "600",
+    },
+    calendarDayTextSelected: {
+        color: "#fff",
+        fontWeight: "800",
+    },
 })

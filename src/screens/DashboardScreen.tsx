@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react"
 import {
     ActivityIndicator,
     Alert,
+    Keyboard,
     Modal,
     Pressable,
     RefreshControl,
@@ -9,10 +10,12 @@ import {
     StyleSheet,
     Text,
     TextInput,
+    TouchableWithoutFeedback,
     View,
 } from "react-native"
 import * as Location from "expo-location"
 import { LinearGradient } from "expo-linear-gradient"
+import { useNavigation } from "@react-navigation/native"
 import { APP_THEME } from "../config/constants"
 import { useAuth } from "../context/AuthContext"
 import { getMyAlerts } from "../services/alertService"
@@ -55,6 +58,7 @@ function formatGateLabel(gate?: string): string {
 
 export default function DashboardScreen() {
     const { user, logout } = useAuth()
+    const navigation = useNavigation<any>()
     const [logs, setLogs] = useState<any[]>([])
     const [alertsCount, setAlertsCount] = useState(0)
     const [latestPinkSlip, setLatestPinkSlip] = useState<any | null>(null)
@@ -115,6 +119,14 @@ export default function DashboardScreen() {
         ? `Last scan at ${lastGateLabel} • ${formatTime(lastDirectionalLog.time ?? lastDirectionalLog.scannedAt)}`
         : "No recent scans found"
 
+    const onPrimaryQuickAction = () => {
+        navigation.navigate(isStudent ? "Scanner" : "Pink Slip")
+    }
+
+    const onSecondaryQuickAction = () => {
+        navigation.navigate(isStudent ? "Pink Slip" : "Logs")
+    }
+
     const onSubmitLateReturn = async () => {
         setLateLoading(true)
 
@@ -167,10 +179,10 @@ export default function DashboardScreen() {
         pinkSlipStatus === "APPROVED"
             ? APP_THEME.success
             : pinkSlipStatus === "REJECTED"
-              ? APP_THEME.danger
-              : pinkSlipStatus === "PENDING"
-                ? APP_THEME.warning
-                : "rgba(255,255,255,0.54)"
+                ? APP_THEME.danger
+                : pinkSlipStatus === "PENDING"
+                    ? APP_THEME.warning
+                    : "rgba(255,255,255,0.54)"
 
     if (loading) {
         return (
@@ -181,293 +193,298 @@ export default function DashboardScreen() {
     }
 
     return (
-        <View style={styles.root}>
-            <LinearGradient
-                colors={["#0A0E21", "#0F1535", "#0A0E21"]}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
-            <ScrollView
-                contentContainerStyle={styles.content}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={APP_THEME.accent} />
-                }
-            >
-                {/* Header */}
-                <View style={styles.headerRow}>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.welcomeText}>Welcome back,</Text>
-                        <Text style={styles.userName}>{user?.name ?? "Student"}</Text>
-                    </View>
-                    <Pressable onPress={logout} style={styles.logoutBtn}>
-                        <Text style={styles.logoutIcon}>⎋</Text>
-                    </Pressable>
-                </View>
-
-                {/* Status Card */}
-                <View
-                    style={[
-                        styles.statusCard,
-                        {
-                            borderColor: (isStudent
-                                ? isInsideHostel
-                                    ? APP_THEME.accent
-                                    : APP_THEME.warning
-                                : APP_THEME.accentPurple
-                            ) + "33",
-                        },
-                    ]}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.root}>
+                <LinearGradient
+                    colors={["#0A0E21", "#0F1535", "#0A0E21"]}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                />
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    keyboardShouldPersistTaps="handled"
+                    onScrollBeginDrag={Keyboard.dismiss}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={APP_THEME.accent} />
+                    }
                 >
-                    <LinearGradient
-                        colors={[
-                            (isStudent
-                                ? isInsideHostel
-                                    ? APP_THEME.accent
-                                    : APP_THEME.warning
-                                : APP_THEME.accentPurple) + "14",
-                            "rgba(255,255,255,0.03)",
+                    {/* Header */}
+                    <View style={styles.headerRow}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.welcomeText}>Welcome back,</Text>
+                            <Text style={styles.userName}>{user?.name ?? "Student"}</Text>
+                        </View>
+                        <Pressable onPress={logout} style={styles.logoutBtn}>
+                            <Text style={styles.logoutIcon}>⎋</Text>
+                        </Pressable>
+                    </View>
+
+                    {/* Status Card */}
+                    <View
+                        style={[
+                            styles.statusCard,
+                            {
+                                borderColor: (isStudent
+                                    ? isInsideHostel
+                                        ? APP_THEME.accent
+                                        : APP_THEME.warning
+                                    : APP_THEME.accentPurple
+                                ) + "33",
+                            },
                         ]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={StyleSheet.absoluteFill}
-                    />
-                    <View style={styles.statusCardInner}>
-                        <View style={styles.statusIconRow}>
-                            <View
-                                style={[
-                                    styles.statusIconWrap,
-                                    {
-                                        backgroundColor: (isStudent
-                                            ? isInsideHostel
-                                                ? APP_THEME.accent
-                                                : APP_THEME.warning
-                                            : APP_THEME.accentPurple) + "1F",
-                                    },
-                                ]}
-                            >
-                                <Text
+                    >
+                        <LinearGradient
+                            colors={[
+                                (isStudent
+                                    ? isInsideHostel
+                                        ? APP_THEME.accent
+                                        : APP_THEME.warning
+                                    : APP_THEME.accentPurple) + "14",
+                                "rgba(255,255,255,0.03)",
+                            ]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={StyleSheet.absoluteFill}
+                        />
+                        <View style={styles.statusCardInner}>
+                            <View style={styles.statusIconRow}>
+                                <View
                                     style={[
-                                        styles.statusIconText,
+                                        styles.statusIconWrap,
                                         {
-                                            color: isStudent
+                                            backgroundColor: (isStudent
                                                 ? isInsideHostel
                                                     ? APP_THEME.accent
                                                     : APP_THEME.warning
-                                                : APP_THEME.accentPurple,
+                                                : APP_THEME.accentPurple) + "1F",
                                         },
                                     ]}
                                 >
-                                    {isStudent ? "◎" : "⬡"}
+                                    <Text
+                                        style={[
+                                            styles.statusIconText,
+                                            {
+                                                color: isStudent
+                                                    ? isInsideHostel
+                                                        ? APP_THEME.accent
+                                                        : APP_THEME.warning
+                                                    : APP_THEME.accentPurple,
+                                            },
+                                        ]}
+                                    >
+                                        {isStudent ? "◎" : "⬡"}
+                                    </Text>
+                                </View>
+                                <Text style={styles.statusLabel}>
+                                    {isStudent ? "Current Status" : "Panel Role"}
                                 </Text>
                             </View>
-                            <Text style={styles.statusLabel}>
-                                {isStudent ? "Current Status" : "Panel Role"}
+                            <Text
+                                style={[
+                                    styles.statusValue,
+                                    {
+                                        color: isStudent
+                                            ? isInsideHostel
+                                                ? APP_THEME.accent
+                                                : APP_THEME.warning
+                                            : APP_THEME.accent,
+                                    },
+                                ]}
+                            >
+                                {isStudent ? statusText : (user?.role ?? "ADMIN")}
                             </Text>
-                        </View>
-                        <Text
-                            style={[
-                                styles.statusValue,
-                                {
-                                    color: isStudent
-                                        ? isInsideHostel
-                                            ? APP_THEME.accent
-                                            : APP_THEME.warning
-                                        : APP_THEME.accent,
-                                },
-                            ]}
-                        >
-                            {isStudent ? statusText : (user?.role ?? "ADMIN")}
-                        </Text>
-                        <Text style={styles.statusMeta}>
-                            {isStudent ? lastScanTime : "MITS Hostel Management System"}
-                        </Text>
-                    </View>
-                </View>
-
-                {/* Pink Slip Status (Students Only) */}
-                {isStudent && (
-                    <View style={[styles.pinkSlipCard, { borderColor: pinkSlipColor + "26" }]}>
-                        <View
-                            style={[styles.pinkSlipIcon, { backgroundColor: pinkSlipColor + "1A" }]}
-                        >
-                            <Text style={[styles.pinkSlipIconText, { color: pinkSlipColor }]}>
-                                {pinkSlipStatus === "APPROVED"
-                                    ? "✓"
-                                    : pinkSlipStatus === "REJECTED"
-                                      ? "✕"
-                                      : pinkSlipStatus === "PENDING"
-                                        ? "⌛"
-                                        : "▣"}
-                            </Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.pinkSlipTitle}>Latest Pink Slip</Text>
-                            <Text style={styles.pinkSlipReason} numberOfLines={1}>
-                                {pinkSlipReason}
-                            </Text>
-                        </View>
-                        <View
-                            style={[
-                                styles.statusPill,
-                                {
-                                    backgroundColor: pinkSlipColor + "1A",
-                                    borderColor: pinkSlipColor + "40",
-                                },
-                            ]}
-                        >
-                            <Text style={[styles.statusPillText, { color: pinkSlipColor }]}>
-                                {pinkSlipStatus === "NONE" ? "NO REQUEST" : pinkSlipStatus}
+                            <Text style={styles.statusMeta}>
+                                {isStudent ? lastScanTime : "MITS Hostel Management System"}
                             </Text>
                         </View>
                     </View>
-                )}
 
-                {/* Quick Actions */}
-                <Text style={styles.sectionTitle}>Quick Actions</Text>
-                <View style={styles.actionRow}>
-                    {/* Primary action card is handled by tab navigation */}
-                    <Pressable style={styles.actionCardGradientWrap}>
-                        <LinearGradient
-                            colors={[APP_THEME.accent, APP_THEME.accentPurple]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.actionCardGradient}
-                        >
-                            <Text style={styles.actionCardIcon}>
-                                {isStudent ? "◎" : "▣"}
-                            </Text>
+                    {/* Pink Slip Status (Students Only) */}
+                    {isStudent && (
+                        <View style={[styles.pinkSlipCard, { borderColor: pinkSlipColor + "26" }]}>
+                            <View
+                                style={[styles.pinkSlipIcon, { backgroundColor: pinkSlipColor + "1A" }]}
+                            >
+                                <Text style={[styles.pinkSlipIconText, { color: pinkSlipColor }]}>
+                                    {pinkSlipStatus === "APPROVED"
+                                        ? "✓"
+                                        : pinkSlipStatus === "REJECTED"
+                                            ? "✕"
+                                            : pinkSlipStatus === "PENDING"
+                                                ? "⌛"
+                                                : "▣"}
+                                </Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.pinkSlipTitle}>Latest Pink Slip</Text>
+                                <Text style={styles.pinkSlipReason} numberOfLines={1}>
+                                    {pinkSlipReason}
+                                </Text>
+                            </View>
+                            <View
+                                style={[
+                                    styles.statusPill,
+                                    {
+                                        backgroundColor: pinkSlipColor + "1A",
+                                        borderColor: pinkSlipColor + "40",
+                                    },
+                                ]}
+                            >
+                                <Text style={[styles.statusPillText, { color: pinkSlipColor }]}>
+                                    {pinkSlipStatus === "NONE" ? "NO REQUEST" : pinkSlipStatus}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Quick Actions */}
+                    <Text style={styles.sectionTitle}>Quick Actions</Text>
+                    <View style={styles.actionRow}>
+                        <Pressable style={styles.actionCardGradientWrap} onPress={onPrimaryQuickAction}>
+                            <LinearGradient
+                                colors={[APP_THEME.accent, APP_THEME.accentPurple]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.actionCardGradient}
+                            >
+                                <Text style={styles.actionCardIcon}>
+                                    {isStudent ? "◎" : "▣"}
+                                </Text>
+                                <Text style={styles.actionCardTitle}>
+                                    {isStudent ? "Scan QR" : "Pink Slips"}
+                                </Text>
+                            </LinearGradient>
+                        </Pressable>
+                        <Pressable style={styles.actionCardGlass} onPress={onSecondaryQuickAction}>
+                            <Text style={styles.actionCardIcon}>▤</Text>
                             <Text style={styles.actionCardTitle}>
-                                {isStudent ? "Scan QR" : "Pink Slips"}
+                                {isStudent ? "Pink Slip" : "Activity"}
                             </Text>
-                        </LinearGradient>
-                    </Pressable>
-                    <Pressable style={styles.actionCardGlass}>
-                        <Text style={styles.actionCardIcon}>▤</Text>
-                        <Text style={styles.actionCardTitle}>
-                            {isStudent ? "Pink Slip" : "Activity"}
-                        </Text>
-                    </Pressable>
-                </View>
+                        </Pressable>
+                    </View>
 
-                {/* Late Return Button (Students Only) */}
-                {isStudent && (
-                    <Pressable style={styles.lateReturnBtn} onPress={() => setShowLateModal(true)}>
-                        <Text style={styles.lateReturnIcon}>⏱</Text>
-                        <Text style={styles.lateReturnText}>I'll Be Late (ETA + Location)</Text>
-                    </Pressable>
-                )}
+                    {/* Late Return Button (Students Only) */}
+                    {isStudent && (
+                        <Pressable style={styles.lateReturnBtn} onPress={() => setShowLateModal(true)}>
+                            <Text style={styles.lateReturnIcon}>⏱</Text>
+                            <Text style={styles.lateReturnText}>I'll Be Late (ETA + Location)</Text>
+                        </Pressable>
+                    )}
 
-                {/* Recent Activity */}
-                <View style={styles.sectionRow}>
-                    <Text style={styles.sectionTitle}>Recent Activity</Text>
-                    <Pressable>
-                        <Text style={styles.viewAllText}>View All</Text>
-                    </Pressable>
-                </View>
+                    {/* Recent Activity */}
+                    <View style={styles.sectionRow}>
+                        <Text style={styles.sectionTitle}>Recent Activity</Text>
+                        <Pressable>
+                            <Text style={styles.viewAllText}>View All</Text>
+                        </Pressable>
+                    </View>
 
-                {recentLogItems.length === 0 ? (
-                    <Text style={styles.emptyText}>No recent activity today.</Text>
-                ) : (
-                    recentLogItems.map((item: any, idx: number) => {
-                        const stamp = item?.time ?? item?.scannedAt ?? item?.timestamp
-                        const mealLog = isMealLog(item)
-                        const direction = String(item?.direction ?? "SCAN").toUpperCase()
-                        const mealNo = extractMealNo(item)
-                        const isEntry = direction === "ENTRY"
-                        const accentColor = mealLog
-                            ? APP_THEME.accent
-                            : isEntry
-                              ? APP_THEME.success
-                              : APP_THEME.warning
+                    {recentLogItems.length === 0 ? (
+                        <Text style={styles.emptyText}>No recent activity today.</Text>
+                    ) : (
+                        recentLogItems.map((item: any, idx: number) => {
+                            const stamp = item?.time ?? item?.scannedAt ?? item?.timestamp
+                            const mealLog = isMealLog(item)
+                            const direction = String(item?.direction ?? "SCAN").toUpperCase()
+                            const mealNo = extractMealNo(item)
+                            const isEntry = direction === "ENTRY"
+                            const accentColor = mealLog
+                                ? APP_THEME.accent
+                                : isEntry
+                                    ? APP_THEME.success
+                                    : APP_THEME.warning
 
-                        return (
-                            <View key={String(item?.id ?? idx)} style={styles.logTile}>
-                                <View
-                                    style={[
-                                        styles.logIconWrap,
-                                        { backgroundColor: accentColor + "1A" },
-                                    ]}
-                                >
-                                    <Text style={[styles.logIconText, { color: accentColor }]}>
-                                        {mealLog ? "🍽" : isEntry ? "→" : "←"}
-                                    </Text>
+                            return (
+                                <View key={String(item?.id ?? idx)} style={styles.logTile}>
+                                    <View
+                                        style={[
+                                            styles.logIconWrap,
+                                            { backgroundColor: accentColor + "1A" },
+                                        ]}
+                                    >
+                                        <Text style={[styles.logIconText, { color: accentColor }]}>
+                                            {mealLog ? "🍽" : isEntry ? "→" : "←"}
+                                        </Text>
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.logTitle}>
+                                            {mealLog
+                                                ? `Meal availed no. ${mealNo ?? "-"}`
+                                                : isEntry
+                                                    ? `Entry — ${formatGateLabel(item?.gate ?? item?.gateLabel)}`
+                                                    : `Exit — ${formatGateLabel(item?.gate ?? item?.gateLabel)}`}
+                                        </Text>
+                                        <Text style={styles.logMeta}>
+                                            {formatTime(stamp)}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.passBadge}>
+                                        <Text style={styles.passBadgeText}>PASS</Text>
+                                    </View>
                                 </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.logTitle}>
-                                        {mealLog
-                                            ? `Meal availed no. ${mealNo ?? "-"}`
-                                            : isEntry
-                                              ? `Entry — ${formatGateLabel(item?.gate ?? item?.gateLabel)}`
-                                              : `Exit — ${formatGateLabel(item?.gate ?? item?.gateLabel)}`}
-                                    </Text>
-                                    <Text style={styles.logMeta}>
-                                        {formatTime(stamp)}
-                                    </Text>
+                            )
+                        })
+                    )}
+                </ScrollView>
+
+                {/* Late Return Modal */}
+                <Modal visible={showLateModal} transparent animationType="fade">
+                    <View style={styles.modalBackdrop}>
+                        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                            <View style={styles.modalCard}>
+                                <Text style={styles.modalTitle}>I'll Be Late</Text>
+
+                                <TextInput
+                                    value={etaMinutes}
+                                    onChangeText={setEtaMinutes}
+                                    keyboardType="number-pad"
+                                    style={styles.modalInput}
+                                    placeholder="ETA in minutes (e.g. 30)"
+                                    placeholderTextColor={APP_THEME.muted}
+                                />
+                                <TextInput
+                                    value={lateReason}
+                                    onChangeText={setLateReason}
+                                    style={[styles.modalInput, { height: 88, textAlignVertical: "top" }]}
+                                    placeholder="Reason (min 5 chars)"
+                                    placeholderTextColor={APP_THEME.muted}
+                                    multiline
+                                />
+
+                                <View style={styles.locationNote}>
+                                    <Text style={styles.locationNoteIcon}>📍</Text>
+                                    <Text style={styles.locationNoteText}>Your current location will be shared.</Text>
                                 </View>
-                                <View style={styles.passBadge}>
-                                    <Text style={styles.passBadgeText}>PASS</Text>
+
+                                <View style={styles.modalActions}>
+                                    <Pressable
+                                        style={styles.modalCancelBtn}
+                                        onPress={() => setShowLateModal(false)}
+                                    >
+                                        <Text style={styles.modalCancelText}>Cancel</Text>
+                                    </Pressable>
+                                    <Pressable onPress={onSubmitLateReturn} disabled={lateLoading}>
+                                        <LinearGradient
+                                            colors={[APP_THEME.warning, "#FF9100"]}
+                                            start={{ x: 0, y: 0.5 }}
+                                            end={{ x: 1, y: 0.5 }}
+                                            style={styles.modalSubmitBtn}
+                                        >
+                                            {lateLoading ? (
+                                                <ActivityIndicator color="#fff" />
+                                            ) : (
+                                                <Text style={styles.modalSubmitText}>Send Request</Text>
+                                            )}
+                                        </LinearGradient>
+                                    </Pressable>
                                 </View>
                             </View>
-                        )
-                    })
-                )}
-            </ScrollView>
-
-            {/* Late Return Modal */}
-            <Modal visible={showLateModal} transparent animationType="fade">
-                <View style={styles.modalBackdrop}>
-                    <View style={styles.modalCard}>
-                        <Text style={styles.modalTitle}>I'll Be Late</Text>
-
-                        <TextInput
-                            value={etaMinutes}
-                            onChangeText={setEtaMinutes}
-                            keyboardType="number-pad"
-                            style={styles.modalInput}
-                            placeholder="ETA in minutes (e.g. 30)"
-                            placeholderTextColor={APP_THEME.muted}
-                        />
-                        <TextInput
-                            value={lateReason}
-                            onChangeText={setLateReason}
-                            style={[styles.modalInput, { height: 88, textAlignVertical: "top" }]}
-                            placeholder="Reason (min 5 chars)"
-                            placeholderTextColor={APP_THEME.muted}
-                            multiline
-                        />
-
-                        <View style={styles.locationNote}>
-                            <Text style={styles.locationNoteIcon}>📍</Text>
-                            <Text style={styles.locationNoteText}>Your current location will be shared.</Text>
-                        </View>
-
-                        <View style={styles.modalActions}>
-                            <Pressable
-                                style={styles.modalCancelBtn}
-                                onPress={() => setShowLateModal(false)}
-                            >
-                                <Text style={styles.modalCancelText}>Cancel</Text>
-                            </Pressable>
-                            <Pressable onPress={onSubmitLateReturn} disabled={lateLoading}>
-                                <LinearGradient
-                                    colors={[APP_THEME.warning, "#FF9100"]}
-                                    start={{ x: 0, y: 0.5 }}
-                                    end={{ x: 1, y: 0.5 }}
-                                    style={styles.modalSubmitBtn}
-                                >
-                                    {lateLoading ? (
-                                        <ActivityIndicator color="#fff" />
-                                    ) : (
-                                        <Text style={styles.modalSubmitText}>Send Request</Text>
-                                    )}
-                                </LinearGradient>
-                            </Pressable>
-                        </View>
+                        </TouchableWithoutFeedback>
                     </View>
-                </View>
-            </Modal>
-        </View>
+                </Modal>
+            </View>
+        </TouchableWithoutFeedback>
     )
 }
 
