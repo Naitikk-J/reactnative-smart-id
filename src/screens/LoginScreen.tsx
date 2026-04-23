@@ -20,7 +20,7 @@ import { useAuth } from "../context/AuthContext"
 import { LinearGradient } from "expo-linear-gradient"
 
 export default function LoginScreen() {
-    const { login, submitRebindRequest } = useAuth()
+    const { login, googleSignIn: loginGoogle, submitRebindRequest } = useAuth()
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [isLoading, setIsLoading] = useState(false)
@@ -160,6 +160,32 @@ export default function LoginScreen() {
                                             <ActivityIndicator color="#fff" />
                                         ) : (
                                             <Text style={styles.gradientBtnText}>Login</Text>
+                                        )}
+                                    </LinearGradient>
+                                </Pressable>
+
+                                <View style={{ height: 12 }} />
+
+                                {/* Google Sign-In Button */}
+                                <Pressable onPress={async () => {
+                                    setIsLoading(true)
+                                    setError(null)
+                                    const outcome = await loginGoogle()
+                                    setIsLoading(false)
+                                    if (!outcome.ok) {
+                                        setError(outcome.error ?? "Google login failed")
+                                    }
+                                }} disabled={isLoading}>
+                                    <LinearGradient
+                                        colors={isLoading ? ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"] : ["#DB4437", "#C53829"]}
+                                        start={{ x: 0, y: 0.5 }}
+                                        end={{ x: 1, y: 0.5 }}
+                                        style={styles.gradientBtn}
+                                    >
+                                        {isLoading ? (
+                                            <ActivityIndicator color="#fff" />
+                                        ) : (
+                                            <Text style={styles.gradientBtnText}>Sign in with Google</Text>
                                         )}
                                     </LinearGradient>
                                 </Pressable>

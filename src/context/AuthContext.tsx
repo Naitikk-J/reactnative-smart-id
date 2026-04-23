@@ -1,11 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { User } from "../types/User"
+import { User, parseUser } from "../types/User"
 import * as authService from "../services/authService"
+import { googleAuthService } from "../services/googleAuthService"
 
 interface AuthContextValue {
     user: User | null
     loading: boolean
     login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
+    googleSignIn: () => Promise<{ ok: boolean; error?: string }>
     logout: () => Promise<void>
     submitRebindRequest: (email: string, reason: string) => Promise<string | null>
 }
@@ -48,13 +50,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
     }, [])
 
+    const googleSignIn = useCallback(async () => {
+        try {
+            const result = await googleAuthService.signIn()
+            if (result.success && result.user) {
+                setUser(result.user)
+                return { ok: true as const }
+            }
+            return { ok: false as const, error: result.error || 'Google sign-in failed' }
+        } catch (error: any) {
+            return { ok: false as const, error: error?.message || 'Google sign-in failed' }
+        }
+    }, [])
+
     const submitRebindRequest = useCallback(async (email: string, reason: string) => {
         return authService.submitRebindRequestFromLogin(email, reason)
     }, [])
 
     const value = useMemo(
-        () => ({ user, loading, login, logout, submitRebindRequest }),
-        [user, loading, login, logout, submitRebindRequest],
+        () => ({ user, loading, login, googleSignIn, logout, submitRebindRequest }),
+        [user, loading, login, googleSignIn, logout, submitRebindRequest],
     )
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

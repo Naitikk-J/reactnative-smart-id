@@ -98,6 +98,32 @@ export async function submitRebindRequestFromLogin(email: string, reason: string
     }
 }
 
+export async function googleLogin(idToken: string): Promise<LoginOutcome> {
+    try {
+        const devicePayload = await buildDeviceIdentityPayload()
+        const response = await api.post("auth/google", {
+            idToken,
+            ...devicePayload,
+        })
+
+        if (response.data?.success !== true) {
+            return { ok: false, error: "Invalid response from server" }
+        }
+
+        const token = String(response.data?.data?.accessToken ?? "")
+        const userRaw = response.data?.data?.user
+        if (!token || !userRaw) {
+            return { ok: false, error: "Google login payload missing" }
+        }
+
+        await writeSecureValueSafe(STORAGE_KEYS.token, token)
+        const user = parseUser(userRaw)
+        return { ok: true, user }
+    } catch (err) {
+        return { ok: false, error: readError(err, "Google login failed") }
+    }
+}
+
 export async function hardResetSession(): Promise<void> {
     await clearStorageSafe()
 }
