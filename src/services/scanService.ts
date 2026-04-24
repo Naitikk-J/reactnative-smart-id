@@ -292,7 +292,7 @@ export async function accessScan(params: {
             console.log("Routing scan to /sessions/scan for Attendance QR")
         }
         try {
-            const response = await api.post("sessions/scan", {
+            const response = await api.post("attendance/sessions/scan", {
                 rawToken: params.qrToken.trim(),
                 gpsLat: params.latitude,
                 gpsLng: params.longitude,
