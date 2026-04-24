@@ -149,6 +149,13 @@ function looksLikeEventToken(token: string): boolean {
         || /^mq1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(trimmed)
 }
 
+function looksLikeAttendanceSessionToken(token: string): boolean {
+    const trimmed = token.trim()
+    // Attendance tokens are base64url encoded JSON starting with `{"`
+    // base64url("{\"") -> "ey"
+    return trimmed.startsWith("ey") && !trimmed.includes(".")
+}
+
 async function postEventScan(params: {
     qrToken: string
     eventType: string
@@ -278,6 +285,32 @@ export async function accessScan(params: {
 
     const normalizedType = normalizeScanType(params.eventType)
     const isDynamic = looksLikeDynamicAccessToken(qrToken)
+    const isAttendance = looksLikeAttendanceSessionToken(qrToken)
+
+    if (isAttendance) {
+        if (__DEV__) {
+            console.log("Routing scan to /sessions/scan for Attendance QR")
+        }
+        try {
+            const response = await api.post("sessions/scan", {
+                rawToken: params.qrToken.trim(),
+                gpsLat: params.latitude,
+                gpsLng: params.longitude,
+            })
+            return parseScanResult(response.data)
+        } catch (err) {
+            const e = err as AxiosError<any>
+            if (e.response?.data) return parseScanResult(e.response.data)
+
+            return {
+                success: false,
+                result: "NETWORK_ERROR",
+                badge: "RED",
+                message: "Unable to connect to attendance server",
+                meta: {},
+            }
+        }
+    }
 
     try {
         const response = await api.post("access/scan", {
