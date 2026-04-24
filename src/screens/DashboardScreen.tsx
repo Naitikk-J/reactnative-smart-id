@@ -20,7 +20,6 @@ import { APP_THEME } from "../config/constants"
 import { useAuth } from "../context/AuthContext"
 import { getMyAlerts } from "../services/alertService"
 import { submitLateReturnRequest } from "../services/lateReturnService"
-import { getMyPinkSlips } from "../services/pinkSlipService"
 import { getPersonalLogs } from "../services/scanService"
 
 const MEAL_NUMBER_REGEX = /meal\s*#?\s*(\d+)/i
@@ -61,7 +60,6 @@ export default function DashboardScreen() {
     const navigation = useNavigation<any>()
     const [logs, setLogs] = useState<any[]>([])
     const [alertsCount, setAlertsCount] = useState(0)
-    const [latestPinkSlip, setLatestPinkSlip] = useState<any | null>(null)
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
 
@@ -73,15 +71,13 @@ export default function DashboardScreen() {
     const isStudent = useMemo(() => String(user?.role ?? "").toUpperCase() === "STUDENT", [user?.role])
 
     const loadData = useCallback(async () => {
-        const [nextLogs, nextAlerts, nextSlips] = await Promise.all([
+        const [nextLogs, nextAlerts] = await Promise.all([
             getPersonalLogs(3),
             getMyAlerts(20),
-            getMyPinkSlips(),
         ])
 
         setLogs(nextLogs)
         setAlertsCount(nextAlerts.length)
-        setLatestPinkSlip(nextSlips.length > 0 ? nextSlips[0] : null)
     }, [])
 
     useEffect(() => {
@@ -120,11 +116,11 @@ export default function DashboardScreen() {
         : "No recent scans found"
 
     const onPrimaryQuickAction = () => {
-        navigation.navigate(isStudent ? "Scanner" : "Pink Slip")
+        navigation.navigate("Scanner")
     }
 
     const onSecondaryQuickAction = () => {
-        navigation.navigate(isStudent ? "Pink Slip" : "Logs")
+        navigation.navigate("Logs")
     }
 
     const onSubmitLateReturn = async () => {
@@ -171,18 +167,6 @@ export default function DashboardScreen() {
         setLateReason("")
         Alert.alert("Submitted", "Late return request sent to warden panel.")
     }
-
-    // ── Pink Slip Status ──
-    const pinkSlipStatus = latestPinkSlip?.status ?? "NONE"
-    const pinkSlipReason = latestPinkSlip?.reason?.trim() ?? "No pink slip request yet"
-    const pinkSlipColor =
-        pinkSlipStatus === "APPROVED"
-            ? APP_THEME.success
-            : pinkSlipStatus === "REJECTED"
-                ? APP_THEME.danger
-                : pinkSlipStatus === "PENDING"
-                    ? APP_THEME.warning
-                    : "rgba(255,255,255,0.54)"
 
     if (loading) {
         return (
@@ -300,44 +284,6 @@ export default function DashboardScreen() {
                         </View>
                     </View>
 
-                    {/* Pink Slip Status (Students Only) */}
-                    {isStudent && (
-                        <View style={[styles.pinkSlipCard, { borderColor: pinkSlipColor + "26" }]}>
-                            <View
-                                style={[styles.pinkSlipIcon, { backgroundColor: pinkSlipColor + "1A" }]}
-                            >
-                                <Text style={[styles.pinkSlipIconText, { color: pinkSlipColor }]}>
-                                    {pinkSlipStatus === "APPROVED"
-                                        ? "✓"
-                                        : pinkSlipStatus === "REJECTED"
-                                            ? "✕"
-                                            : pinkSlipStatus === "PENDING"
-                                                ? "⌛"
-                                                : "▣"}
-                                </Text>
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.pinkSlipTitle}>Latest Pink Slip</Text>
-                                <Text style={styles.pinkSlipReason} numberOfLines={1}>
-                                    {pinkSlipReason}
-                                </Text>
-                            </View>
-                            <View
-                                style={[
-                                    styles.statusPill,
-                                    {
-                                        backgroundColor: pinkSlipColor + "1A",
-                                        borderColor: pinkSlipColor + "40",
-                                    },
-                                ]}
-                            >
-                                <Text style={[styles.statusPillText, { color: pinkSlipColor }]}>
-                                    {pinkSlipStatus === "NONE" ? "NO REQUEST" : pinkSlipStatus}
-                                </Text>
-                            </View>
-                        </View>
-                    )}
-
                     {/* Quick Actions */}
                     <Text style={styles.sectionTitle}>Quick Actions</Text>
                     <View style={styles.actionRow}>
@@ -349,17 +295,17 @@ export default function DashboardScreen() {
                                 style={styles.actionCardGradient}
                             >
                                 <Text style={styles.actionCardIcon}>
-                                    {isStudent ? "◎" : "▣"}
+                                    ◎
                                 </Text>
                                 <Text style={styles.actionCardTitle}>
-                                    {isStudent ? "Scan QR" : "Pink Slips"}
+                                    Scan QR
                                 </Text>
                             </LinearGradient>
                         </Pressable>
                         <Pressable style={styles.actionCardGlass} onPress={onSecondaryQuickAction}>
-                            <Text style={styles.actionCardIcon}>▤</Text>
+                            <Text style={styles.actionCardIcon}>≣</Text>
                             <Text style={styles.actionCardTitle}>
-                                {isStudent ? "Pink Slip" : "Activity"}
+                                Activity Logs
                             </Text>
                         </Pressable>
                     </View>
@@ -573,45 +519,10 @@ const styles = StyleSheet.create({
         marginTop: 6,
     },
 
-    // ── Pink Slip Status ──
-    pinkSlipCard: {
-        flexDirection: "row",
-        alignItems: "center",
-        borderRadius: 18,
-        borderWidth: 1,
-        backgroundColor: "rgba(255,255,255,0.04)",
-        padding: 16,
-        gap: 12,
-        marginBottom: 20,
-    },
-    pinkSlipIcon: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    pinkSlipIconText: { fontSize: 20, fontWeight: "900" },
-    pinkSlipTitle: {
-        color: "rgba(255,255,255,0.7)",
-        fontSize: 12,
-        fontWeight: "700",
-    },
-    pinkSlipReason: {
-        color: "rgba(255,255,255,0.4)",
-        fontSize: 12,
-        marginTop: 2,
-    },
-    statusPill: {
-        borderRadius: 999,
-        borderWidth: 1,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-    },
-    statusPillText: {
-        fontSize: 10,
-        fontWeight: "800",
-        letterSpacing: 0.5,
+    statusMeta: {
+        color: "rgba(255,255,255,0.35)",
+        fontSize: 13,
+        marginTop: 6,
     },
 
     // ── Quick Actions ──

@@ -9,7 +9,6 @@ import LoginScreen from "../screens/LoginScreen"
 import DashboardScreen from "../screens/DashboardScreen"
 import ScannerScreen from "../screens/ScannerScreen"
 import LogsScreen from "../screens/LogsScreen"
-import PinkSlipScreen from "../screens/PinkSlipScreen"
 import AlertsScreen from "../screens/AlertsScreen"
 
 const Stack = createNativeStackNavigator()
@@ -19,7 +18,6 @@ const TAB_META: Record<string, { icon: string; title: string }> = {
     Dashboard: { icon: "⌂", title: "Home" },
     Scanner: { icon: "◎", title: "Scanner" },
     Logs: { icon: "≣", title: "Logs" },
-    "Pink Slip": { icon: "▣", title: "Slips" },
     Alerts: { icon: "⚑", title: "Alerts" },
 }
 
@@ -55,7 +53,6 @@ function AppTabs() {
             <Tabs.Screen name="Dashboard" component={DashboardScreen} />
             <Tabs.Screen name="Scanner" component={ScannerScreen} options={{ headerShown: false }} />
             <Tabs.Screen name="Logs" component={LogsScreen} />
-            <Tabs.Screen name="Pink Slip" component={PinkSlipScreen} options={{ headerShown: false }} />
             <Tabs.Screen name="Alerts" component={AlertsScreen} />
         </Tabs.Navigator>
     )

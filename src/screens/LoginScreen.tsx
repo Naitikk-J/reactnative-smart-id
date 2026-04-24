@@ -20,17 +20,9 @@ import { useAuth } from "../context/AuthContext"
 import { LinearGradient } from "expo-linear-gradient"
 
 export default function LoginScreen() {
-    const { login, googleSignIn: loginGoogle, submitRebindRequest } = useAuth()
-    const [email, setEmail] = useState("")
-    const [password, setPassword] = useState("")
+    const { googleSignIn: loginGoogle } = useAuth()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [obscurePassword, setObscurePassword] = useState(true)
-
-    const [showRebind, setShowRebind] = useState(false)
-    const [rebindEmail, setRebindEmail] = useState("")
-    const [rebindReason, setRebindReason] = useState("")
-    const [rebindLoading, setRebindLoading] = useState(false)
 
     const fadeAnim = useRef(new Animated.Value(0)).current
     const slideAnim = useRef(new Animated.Value(30)).current
@@ -42,32 +34,7 @@ export default function LoginScreen() {
         ]).start()
     }, [])
 
-    const onLogin = async () => {
-        setIsLoading(true)
-        setError(null)
 
-        const outcome = await login(email, password)
-        setIsLoading(false)
-
-        if (!outcome.ok) {
-            setError(outcome.error ?? "Login failed")
-        }
-    }
-
-    const onSubmitRebind = async () => {
-        setRebindLoading(true)
-        const outcome = await submitRebindRequest(rebindEmail, rebindReason)
-        setRebindLoading(false)
-
-        if (outcome) {
-            Alert.alert("Failed", outcome)
-            return
-        }
-
-        setShowRebind(false)
-        setRebindReason("")
-        Alert.alert("Submitted", "Rebind request sent to admin")
-    }
 
     return (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -108,37 +75,6 @@ export default function LoginScreen() {
 
                             {/* Login Card — Glass */}
                             <View style={styles.glassCard}>
-                                <Text style={styles.fieldLabel}>Email</Text>
-                                <TextInput
-                                    value={email}
-                                    onChangeText={setEmail}
-                                    autoCapitalize="none"
-                                    keyboardType="email-address"
-                                    placeholder="student@mits.local"
-                                    placeholderTextColor="rgba(255,255,255,0.3)"
-                                    style={styles.input}
-                                />
-
-                                <View style={{ height: 20 }} />
-
-                                <Text style={styles.fieldLabel}>Password</Text>
-                                <View style={styles.passwordRow}>
-                                    <TextInput
-                                        value={password}
-                                        onChangeText={setPassword}
-                                        secureTextEntry={obscurePassword}
-                                        placeholder="••••••••"
-                                        placeholderTextColor="rgba(255,255,255,0.3)"
-                                        style={[styles.input, { flex: 1 }]}
-                                    />
-                                    <Pressable
-                                        onPress={() => setObscurePassword(!obscurePassword)}
-                                        style={styles.eyeBtn}
-                                    >
-                                        <Text style={styles.eyeIcon}>{obscurePassword ? "◌" : "◉"}</Text>
-                                    </Pressable>
-                                </View>
-
                                 {error ? (
                                     <View style={styles.errorBox}>
                                         <Text style={styles.errorIcon}>!</Text>
@@ -146,25 +82,7 @@ export default function LoginScreen() {
                                     </View>
                                 ) : null}
 
-                                <View style={{ height: 28 }} />
-
-                                {/* Gradient Login Button */}
-                                <Pressable onPress={onLogin} disabled={isLoading}>
-                                    <LinearGradient
-                                        colors={isLoading ? ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"] : [APP_THEME.accent, APP_THEME.accentPurple]}
-                                        start={{ x: 0, y: 0.5 }}
-                                        end={{ x: 1, y: 0.5 }}
-                                        style={styles.gradientBtn}
-                                    >
-                                        {isLoading ? (
-                                            <ActivityIndicator color="#fff" />
-                                        ) : (
-                                            <Text style={styles.gradientBtnText}>Login</Text>
-                                        )}
-                                    </LinearGradient>
-                                </Pressable>
-
-                                <View style={{ height: 12 }} />
+                                <View style={{ height: 16 }} />
 
                                 {/* Google Sign-In Button */}
                                 <Pressable onPress={async () => {
@@ -190,72 +108,10 @@ export default function LoginScreen() {
                                     </LinearGradient>
                                 </Pressable>
 
-                                <View style={{ height: 12 }} />
-
-                                {/* Rebind Request Button */}
-                                <Pressable
-                                    onPress={() => {
-                                        setRebindEmail(email)
-                                        setShowRebind(true)
-                                    }}
-                                    style={styles.rebindBtn}
-                                    disabled={isLoading}
-                                >
-                                    <Text style={styles.rebindBtnText}>Rebind Request</Text>
-                                </Pressable>
                             </View>
                         </Animated.View>
                     </KeyboardAvoidingView>
                 </SafeAreaView>
-
-                {/* Rebind Modal */}
-                <Modal visible={showRebind} animationType="slide" transparent>
-                    <View style={styles.modalBackdrop}>
-                        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-                            <View style={styles.modalCard}>
-                                <Text style={styles.modalTitle}>Rebind Request</Text>
-                                <TextInput
-                                    value={rebindEmail}
-                                    onChangeText={setRebindEmail}
-                                    autoCapitalize="none"
-                                    keyboardType="email-address"
-                                    placeholder="Email"
-                                    placeholderTextColor={APP_THEME.muted}
-                                    style={styles.input}
-                                />
-                                <TextInput
-                                    value={rebindReason}
-                                    onChangeText={setRebindReason}
-                                    placeholder="Reason"
-                                    placeholderTextColor={APP_THEME.muted}
-                                    multiline
-                                    numberOfLines={3}
-                                    style={[styles.input, { height: 88, textAlignVertical: "top" }]}
-                                />
-
-                                <View style={styles.modalActions}>
-                                    <Pressable onPress={() => setShowRebind(false)} style={styles.modalCancelBtn}>
-                                        <Text style={styles.modalCancelText}>Cancel</Text>
-                                    </Pressable>
-                                    <Pressable onPress={onSubmitRebind} disabled={rebindLoading}>
-                                        <LinearGradient
-                                            colors={[APP_THEME.accent, APP_THEME.accentPurple]}
-                                            start={{ x: 0, y: 0.5 }}
-                                            end={{ x: 1, y: 0.5 }}
-                                            style={styles.modalSubmitBtn}
-                                        >
-                                            {rebindLoading ? (
-                                                <ActivityIndicator color="#fff" />
-                                            ) : (
-                                                <Text style={styles.modalSubmitText}>Submit</Text>
-                                            )}
-                                        </LinearGradient>
-                                    </Pressable>
-                                </View>
-                            </View>
-                        </TouchableWithoutFeedback>
-                    </View>
-                </Modal>
             </View>
         </TouchableWithoutFeedback>
     )
