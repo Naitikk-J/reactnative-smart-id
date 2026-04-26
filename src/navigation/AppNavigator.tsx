@@ -10,6 +10,9 @@ import DashboardScreen from "../screens/DashboardScreen"
 import ScannerScreen from "../screens/ScannerScreen"
 import LogsScreen from "../screens/LogsScreen"
 import AlertsScreen from "../screens/AlertsScreen"
+import EIdCardScreen from "../screens/EIdCardScreen"
+import PinkSlipScreen from "../screens/PinkSlipScreen"
+import ProfileScreen from "../screens/ProfileScreen"
 
 const Stack = createNativeStackNavigator()
 const Tabs = createBottomTabNavigator()
@@ -17,6 +20,7 @@ const Tabs = createBottomTabNavigator()
 const TAB_META: Record<string, { icon: string; title: string }> = {
     Dashboard: { icon: "⌂", title: "Home" },
     Scanner: { icon: "◎", title: "Scanner" },
+    EIdCard: { icon: "⊡", title: "ID Card" },
     Logs: { icon: "≣", title: "Logs" },
     Alerts: { icon: "⚑", title: "Alerts" },
 }
@@ -52,6 +56,11 @@ function AppTabs() {
         >
             <Tabs.Screen name="Dashboard" component={DashboardScreen} />
             <Tabs.Screen name="Scanner" component={ScannerScreen} options={{ headerShown: false }} />
+            <Tabs.Screen
+                name="EIdCard"
+                component={EIdCardScreen}
+                options={{ title: "Digital ID Card" }}
+            />
             <Tabs.Screen name="Logs" component={LogsScreen} />
             <Tabs.Screen name="Alerts" component={AlertsScreen} />
         </Tabs.Navigator>
@@ -76,7 +85,41 @@ export default function AppNavigator() {
         <NavigationContainer>
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 {user ? (
-                    <Stack.Screen name="App" component={AppTabs} />
+                    <>
+                        <Stack.Screen name="App" component={AppTabs} />
+                        <Stack.Screen
+                            name="PinkSlip"
+                            component={PinkSlipScreen}
+                            options={{
+                                headerShown: true,
+                                title: "Pink Slip",
+                                headerStyle: {
+                                    backgroundColor: APP_THEME.surfaceDark,
+                                },
+                                headerTitleStyle: {
+                                    color: APP_THEME.text,
+                                    fontWeight: "700",
+                                },
+                                headerTintColor: APP_THEME.text,
+                            }}
+                        />
+                        <Stack.Screen
+                            name="Profile"
+                            component={ProfileScreen}
+                            options={{
+                                headerShown: true,
+                                title: "Edit Profile",
+                                headerStyle: {
+                                    backgroundColor: APP_THEME.surfaceDark,
+                                },
+                                headerTitleStyle: {
+                                    color: APP_THEME.text,
+                                    fontWeight: "700",
+                                },
+                                headerTintColor: APP_THEME.text,
+                            }}
+                        />
+                    </>
                 ) : (
                     <Stack.Screen name="Login" component={LoginScreen} />
                 )}
@@ -110,7 +153,7 @@ const styles = StyleSheet.create({
         borderRadius: 14,
     },
     tabLabel: {
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: "700",
         marginBottom: 2,
     },

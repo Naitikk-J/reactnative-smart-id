@@ -310,6 +310,24 @@ export default function DashboardScreen() {
                         </Pressable>
                     </View>
 
+                    {/* Secondary Quick Actions */}
+                    <View style={styles.actionRow}>
+                        <Pressable
+                            style={styles.actionCardGlass}
+                            onPress={() => navigation.navigate("EIdCard")}
+                        >
+                            <Text style={styles.actionCardIcon}>⊡</Text>
+                            <Text style={styles.actionCardTitle}>E-ID Card</Text>
+                        </Pressable>
+                        <Pressable
+                            style={styles.actionCardGlass}
+                            onPress={() => navigation.navigate("PinkSlip")}
+                        >
+                            <Text style={[styles.actionCardIcon, { color: APP_THEME.accentPink }]}>📋</Text>
+                            <Text style={styles.actionCardTitle}>Pink Slip</Text>
+                        </Pressable>
+                    </View>
+
                     {/* Late Return Button (Students Only) */}
                     {isStudent && (
                         <Pressable style={styles.lateReturnBtn} onPress={() => setShowLateModal(true)}>
@@ -321,7 +339,7 @@ export default function DashboardScreen() {
                     {/* Recent Activity */}
                     <View style={styles.sectionRow}>
                         <Text style={styles.sectionTitle}>Recent Activity</Text>
-                        <Pressable>
+                        <Pressable onPress={() => navigation.navigate("Logs")}>
                             <Text style={styles.viewAllText}>View All</Text>
                         </Pressable>
                     </View>
