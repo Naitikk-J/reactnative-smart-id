@@ -80,11 +80,11 @@ export default function EIdCardScreen() {
         }
     }, [])
 
-    // Start dynamic QR rotation every 5 seconds (matching Flutter)
+    // Start dynamic QR rotation every 10 seconds
     const startQrRotation = useCallback(() => {
         if (timerRef.current) clearInterval(timerRef.current)
         fetchDynamicToken() // Initial fetch
-        timerRef.current = setInterval(fetchDynamicToken, 5000)
+        timerRef.current = setInterval(fetchDynamicToken, 10000)
     }, [fetchDynamicToken])
 
     useEffect(() => {

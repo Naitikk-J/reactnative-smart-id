@@ -2,8 +2,8 @@ import { AxiosError } from "axios"
 import { api } from "../api/client"
 import { ScanResult, parseScanResult } from "../types/ScanResult"
 
-const SIGNED_TOKEN_REGEX = /^(aq1|eq1|mq1)\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
-const SIGNED_TOKEN_EMBEDDED_REGEX = /(aq1|eq1|mq1)\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/i
+const SIGNED_TOKEN_REGEX = /^((aq1|eq1|mq1)\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|[A-Za-z0-9_-]{40,})$/
+const SIGNED_TOKEN_EMBEDDED_REGEX = /((aq1|eq1|mq1)\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|[A-Za-z0-9_-]{40,})/i
 
 function decodeURIComponentSafe(value: string): string {
     try {
@@ -140,7 +140,8 @@ function looksLikeDynamicAccessToken(token: string): boolean {
     const trimmed = token.trim()
     const legacyHex = /^[a-fA-F0-9]{48}$/.test(trimmed)
     const signed = /^aq1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(trimmed)
-    return legacyHex || signed
+    const base64Url = /^[A-Za-z0-9_-]{40,}$/.test(trimmed)
+    return legacyHex || signed || base64Url
 }
 
 function looksLikeEventToken(token: string): boolean {
